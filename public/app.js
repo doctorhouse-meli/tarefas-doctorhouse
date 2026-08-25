@@ -575,6 +575,8 @@ let currentUser = null;
 
     const pending = getPendingTasks(tasks).length;
     const doing = getDoingTasks(tasks).length;
+    const overdue = tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length;
+    const next = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length;
     const done = getDoneTasks(tasks).length;
 
     $('#employeeSummary').innerHTML = `
@@ -588,6 +590,16 @@ let currentUser = null;
         <strong>${doing}</strong>
         <span>tarefas iniciadas</span>
       </button>
+      <button type="button" class="employee-summary-card summary-overdue ${employeeTaskFilter === 'overdue' ? 'is-active' : ''}" data-filter="overdue">
+        <p>Atrasadas</p>
+        <strong>${overdue}</strong>
+        <span>pendentes vencidas</span>
+      </button>
+      <button type="button" class="employee-summary-card summary-next ${employeeTaskFilter === 'next' ? 'is-active' : ''}" data-filter="next">
+        <p>Proximas</p>
+        <strong>${next}</strong>
+        <span>agendadas para depois</span>
+      </button>
       <button type="button" class="employee-summary-card summary-daily ${employeeTaskFilter === 'done' ? 'is-active' : ''}" data-filter="done">
         <p>Concluidas</p>
         <strong>${done}</strong>
@@ -600,12 +612,16 @@ let currentUser = null;
     const counts = {
       pending: getPendingTasks(tasks).length,
       doing: getDoingTasks(tasks).length,
+      overdue: tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length,
+      next: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length,
       done: tasks.filter((task) => task.status === 'Concluida').length,
     };
 
     const filters = [
       ['pending', 'Pendentes'],
       ['doing', 'Em andamento'],
+      ['overdue', 'Atrasadas'],
+      ['next', 'Proximas'],
       ['done', 'Concluidas'],
     ];
 
@@ -619,7 +635,7 @@ let currentUser = null;
   }
 
   function handleEmployeeFilterClick(event) {
-    const button = event.target.closest('.employee-filter-btn');
+    const button = event.target.closest('.employee-summary-card, .employee-filter-btn');
     if (!button) return;
 
     employeeTaskFilter = button.dataset.filter || 'pending';
@@ -633,6 +649,8 @@ let currentUser = null;
     if (employeeTaskFilter === 'done') return sortOldestFirst(getDoneTasks(tasks));
     if (employeeTaskFilter === 'doing') return sortOldestFirst(getDoingTasks(tasks));
     if (employeeTaskFilter === 'pending') return sortOldestFirst(getPendingTasksByPendingFilter(tasks));
+    if (employeeTaskFilter === 'overdue') return sortOldestFirst(tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue'));
+    if (employeeTaskFilter === 'next') return sortOldestFirst(getTasksByDueKey(tasks, 'next'));
     return sortEmployeeTasks(getDefaultEmployeeVisibleTasks(tasks));
   }
 
@@ -653,6 +671,8 @@ let currentUser = null;
     const titles = {
       pending: 'Tarefas pendentes',
       doing: 'Tarefas em andamento',
+      overdue: 'Tarefas atrasadas',
+      next: 'Proximas tarefas',
       done: 'Tarefas concluidas',
     };
 
