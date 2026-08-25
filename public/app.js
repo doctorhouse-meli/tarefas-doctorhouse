@@ -14,6 +14,7 @@ let currentUser = null;
   let employeePendingFilter = 'today';
   let currentEmployeeTasks = [];
   let knownEmployeeTaskIds = new Set();
+  let adminDefaultFilterApplied = false;
   let audioContext = null;
   let originalPageTitle = document.title || 'Dashboard de Tarefas';
   let originalFaviconHref = '';
@@ -207,6 +208,10 @@ let currentUser = null;
     renderAdminStats();
     renderAdminTodayPanel();
     renderAdminSelects();
+    if (!adminDefaultFilterApplied) {
+      $('#filterStatus').value = 'Pendente';
+      adminDefaultFilterApplied = true;
+    }
     renderAdminTasks();
     renderAdminUsers();
   }
