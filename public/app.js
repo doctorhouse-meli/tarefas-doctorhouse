@@ -1133,7 +1133,10 @@ let currentUser = null;
 
     const last = newMessages[newMessages.length - 1];
     startTitleAlert('Nova mensagem!');
-    showTaskAlert(`Mensagem de ${collaboratorName || collaboratorEmail}`, last.mensagem);
+    showTaskAlert(`Mensagem de ${collaboratorName || collaboratorEmail}`, last.mensagem, {
+      chatEmail: collaboratorEmail,
+      chatName: collaboratorName || collaboratorEmail,
+    });
     playNotificationSound();
     showBrowserChatNotification(last, collaboratorEmail, collaboratorName || collaboratorEmail);
   }
@@ -1366,7 +1369,7 @@ let currentUser = null;
     return favicon;
   }
 
-  function showTaskAlert(title, message) {
+  function showTaskAlert(title, message, options = {}) {
     let alert = $('#taskAlert');
     if (!alert) {
       alert = document.createElement('div');
@@ -1375,15 +1378,30 @@ let currentUser = null;
       document.body.appendChild(alert);
     }
 
+    const isClickable = Boolean(options.chatEmail);
+    alert.classList.toggle('cursor-pointer', isClickable);
+    alert.classList.toggle('hover:shadow-cyan-200/70', isClickable);
+    alert.onclick = null;
     alert.innerHTML = `
       <div class="flex items-start gap-3">
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-sm font-black text-white">!</div>
         <div>
           <p class="font-black text-slate-900">${escapeHtml(title)}</p>
           <p class="mt-1 text-sm text-slate-600">${escapeHtml(message)}</p>
+          ${isClickable ? '<p class="mt-2 text-xs font-black text-cyan-700">Clique para abrir a conversa</p>' : ''}
         </div>
       </div>
     `;
+    if (isClickable) {
+      alert.onclick = async () => {
+        alert.classList.add('hidden');
+        try {
+          await openChat(options.chatEmail, options.chatName || options.chatEmail);
+        } catch (error) {
+          showToast(error.message || 'Nao foi possivel abrir o chat.');
+        }
+      };
+    }
     alert.classList.remove('hidden');
     setTimeout(() => alert.classList.add('hidden'), 7000);
   }
