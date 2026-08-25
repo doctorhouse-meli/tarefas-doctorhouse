@@ -1,0 +1,458 @@
+{
+  "exportedAt": "2026-08-25T20:58:02.256Z",
+  "spreadsheetId": "18BIKDa5Ks74SaXCqP6ym3JdRE65kR_65HZCbMf4lOwk",
+  "sheets": {
+    "Usuarios": [
+      {
+        "ID": "USR-387929F9",
+        "Nome": "Administrador",
+        "Email": "admin@empresa.com",
+        "Senha": 123456,
+        "Perfil (Admin/Colaborador)": "Admin",
+        "Workspace": "Principal"
+      },
+      {
+        "ID": "USR-927FB2EB",
+        "Nome": "Anna Beatriz",
+        "Email": "annabeatriz.doctor@gmail.com",
+        "Senha": 123456,
+        "Perfil (Admin/Colaborador)": "Colaborador",
+        "Workspace": "Principal"
+      },
+      {
+        "ID": "USR-A3C2B348",
+        "Nome": "Dalila",
+        "Email": "dalila@dalila.com",
+        "Senha": 123456,
+        "Perfil (Admin/Colaborador)": "Colaborador",
+        "Workspace": "Principal"
+      }
+    ],
+    "Tarefas": [
+      {
+        "ID": "TSK-DE63CFEF",
+        "Workspace": "Principal",
+        "Titulo": "Verificar Saldo ADS - Shopee",
+        "Descricao": "",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Media",
+        "DataPrazo": "2026-08-06T15:42:09.127Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Em Andamento",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Diaria",
+        "DataCriacao": "2026-08-06T15:42:09.127Z",
+        "DataConclusao": ""
+      },
+      {
+        "ID": "TSK-C50AFFCF",
+        "Workspace": "Principal",
+        "Titulo": "Excluir Pedido",
+        "Descricao": "Excluir pedido seringa jacutinga, cancelar ou fazer devolução",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Alta",
+        "DataPrazo": "2026-08-06T03:00:00.000Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Concluida",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Manual",
+        "DataCriacao": "2026-08-06T15:42:37.354Z",
+        "DataConclusao": "2026-08-06T16:16:38.617Z"
+      },
+      {
+        "ID": "TSK-FF221BED",
+        "Workspace": "Principal",
+        "Titulo": "50xn13-esteril",
+        "Descricao": "Modificar as imagens pra texmed de volta",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Alta",
+        "DataPrazo": "2026-08-07T01:06:12.909Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Concluida",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Diaria",
+        "DataCriacao": "2026-08-07T01:06:12.909Z",
+        "DataConclusao": "2026-08-07T12:09:25.987Z"
+      },
+      {
+        "ID": "TSK-E77ABEAC",
+        "Workspace": "Principal",
+        "Titulo": "Melhorias de imagens",
+        "Descricao": "Mudar imagens do shp3",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Media",
+        "DataPrazo": "2026-08-07T01:08:21.980Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Em Andamento",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Diaria",
+        "DataCriacao": "2026-08-07T01:08:21.980Z",
+        "DataConclusao": ""
+      },
+      {
+        "ID": "TSK-D18A0B00",
+        "Workspace": "Principal",
+        "Titulo": "ALTERAR PREÇO FINAL SHOPEE",
+        "Descricao": "52309959490 - SHP2\n58260126586 - SHP3\n52459959769 - SHP MG",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Urgente",
+        "DataPrazo": "2026-08-07T03:00:00.000Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Concluida",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Manual",
+        "DataCriacao": "2026-08-07T18:20:20.552Z",
+        "DataConclusao": "2026-08-07T18:58:04.545Z"
+      },
+      {
+        "ID": "TSK-141BFDB6",
+        "Workspace": "Principal",
+        "Titulo": "Verificar se foi resetado o ciclo do mês passado - Registro ponto",
+        "Descricao": "a empresa fez uma correção para corrigir o relatório de ponto que estava com atraso de todos, lembra?\n\nme lembra de verificar com você se foi corrigido, o ciclo será aberto de novo",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Urgente",
+        "DataPrazo": "2026-08-12T03:00:00.000Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Concluida",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Manual",
+        "DataCriacao": "2026-08-11T13:15:20.069Z",
+        "DataConclusao": "2026-08-11T15:22:40.661Z"
+      },
+      {
+        "ID": "TSK-A8093BFE",
+        "Workspace": "Principal",
+        "Titulo": "Arrumar ponto - Pedro",
+        "Descricao": "marcar ponto dele de hoje normalmente, como se ele estivesse trabalhando, qualquer duvida me avisa",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Urgente",
+        "DataPrazo": "2026-08-11T03:00:00.000Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Concluida",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Manual",
+        "DataCriacao": "2026-08-11T13:17:47.951Z",
+        "DataConclusao": "2026-08-13T12:16:12.429Z"
+      },
+      {
+        "ID": "TSK-C52C8030",
+        "Workspace": "Principal",
+        "Titulo": "ANUNCIO MERCADO LIVRE 1",
+        "Descricao": "6xlencol-tnt\n15xlencol-tnt\n20xlencol-tnt\n3xenvelope9x23 (coloquei esse SKU pra ficar mais fácil depois)\n5xenvelope9x23\n20xGUA2022WP100\n200x5017 (valor bem alto, pra poder ter desconto)\n300x5017 (valor bem alto, pra poder ter desconto)\n400x5017 (valor bem alto, pra poder ter desconto)",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Urgente",
+        "DataPrazo": "2026-08-25T03:00:00.000Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Pendente",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Manual",
+        "DataCriacao": "2026-08-25T19:57:57.255Z",
+        "DataConclusao": ""
+      },
+      {
+        "ID": "TSK-1819B8AE",
+        "Workspace": "Principal",
+        "Titulo": "ANUNCIO MERCADO LIVRE",
+        "Descricao": "Joab, criar anúncios do mercado livre hoje ainda. ",
+        "Prioridade (Baixa/Media/Alta/Urgente)": "Urgente",
+        "DataPrazo": "2026-08-25T03:00:00.000Z",
+        "Status (Pendente/Em Andamento/Concluida)": "Pendente",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "Tipo (Manual/Diaria)": "Manual",
+        "DataCriacao": "2026-08-25T19:58:00.718Z",
+        "DataConclusao": ""
+      }
+    ],
+    "TemplatesDiarios": [
+      {
+        "ID": "TPL-48A62267",
+        "Workspace": "Principal",
+        "Titulo": "Verificar Saldo ADS - Shopee",
+        "Descricao": "",
+        "Prioridade": "Media",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": ""
+      },
+      {
+        "ID": "TPL-245F76ED",
+        "Workspace": "Principal",
+        "Titulo": "50xn13-esteril",
+        "Descricao": "Modificar as imagens pra texmed de volta",
+        "Prioridade": "Alta",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": "1,2,3,4,5,6,0"
+      },
+      {
+        "ID": "TPL-AC7B8957",
+        "Workspace": "Principal",
+        "Titulo": "50xn13-esteril",
+        "Descricao": "Modificar as imagens pra texmed de volta",
+        "Prioridade": "Alta",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": "1,2,3,4,5,6,0"
+      },
+      {
+        "ID": "TPL-3C972053",
+        "Workspace": "Principal",
+        "Titulo": "50xn13-esteril",
+        "Descricao": "Modificar as imagens pra texmed de volta",
+        "Prioridade": "Alta",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": "1,2,3,4,5,6,0"
+      },
+      {
+        "ID": "TPL-C525FE2C",
+        "Workspace": "Principal",
+        "Titulo": "Melhorias de imagens",
+        "Descricao": "Mudar imagens do shp3",
+        "Prioridade": "Media",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": "1,2,3,4,5"
+      },
+      {
+        "ID": "TPL-11A4C6E0",
+        "Workspace": "Principal",
+        "Titulo": "Melhorias de imagens",
+        "Descricao": "Mudar imagens do shp3",
+        "Prioridade": "Media",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": "1,2,3,4,5"
+      },
+      {
+        "ID": "TPL-A22F9119",
+        "Workspace": "Principal",
+        "Titulo": "Melhorias de imagens",
+        "Descricao": "Mudar imagens do shp3",
+        "Prioridade": "Media",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": "1,2,3,4,5"
+      },
+      {
+        "ID": "TPL-4FC1F3C9",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      },
+      {
+        "ID": "TPL-C2417890",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      },
+      {
+        "ID": "TPL-D8192AC2",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      },
+      {
+        "ID": "TPL-CDFD1138",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      },
+      {
+        "ID": "TPL-C557245F",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      },
+      {
+        "ID": "TPL-772368D9",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      },
+      {
+        "ID": "TPL-8DCB8CAC",
+        "Workspace": "Principal",
+        "Titulo": "Pano Multiuso",
+        "Descricao": "Enviar arte dos panos avariados pro jo",
+        "Prioridade": "Baixa",
+        "AtribuidoPara (Email)": "annabeatriz.doctor@gmail.com",
+        "DiasSemana": 5
+      }
+    ],
+    "Comentarios": [
+      {
+        "ID": "COM-F5F21526",
+        "TaskID": "TSK-3DC755D1",
+        "AutorEmail": "dalila@dalila.com",
+        "DataHora": "2026-07-29T19:52:23.937Z",
+        "Mensagem": "teste"
+      },
+      {
+        "ID": "COM-C8D3127A",
+        "TaskID": "TSK-C52C8030",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-25T19:59:23.184Z",
+        "Mensagem": "ja terminou?"
+      },
+      {
+        "ID": "COM-FA8458FA",
+        "TaskID": "TSK-1819B8AE",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-25T19:59:59.276Z",
+        "Mensagem": "esperando voce"
+      }
+    ],
+    "Workspaces": [
+      {
+        "ID": "WKS-5ED9C273",
+        "Nome": "Principal",
+        "Descricao": "Workspace padrao",
+        "Ativo": true,
+        "DataCriacao": "2026-07-29T19:38:36.294Z"
+      }
+    ],
+    "Checklist": [],
+    "Historico": [
+      {
+        "ID": "HIS-16EC1E0B",
+        "TaskID": "TSK-DE63CFEF",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-06T16:16:25.811Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Em Andamento"
+      },
+      {
+        "ID": "HIS-E7E1F8A4",
+        "TaskID": "TSK-C50AFFCF",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-06T16:16:38.621Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Concluida"
+      },
+      {
+        "ID": "HIS-0E529A58",
+        "TaskID": "TSK-FF221BED",
+        "AutorEmail": "sistema",
+        "DataHora": "2026-08-07T01:06:13.566Z",
+        "Acao": "Criou tarefa diaria",
+        "Detalhes": "50xn13-esteril"
+      },
+      {
+        "ID": "HIS-6E67544C",
+        "TaskID": "TSK-E77ABEAC",
+        "AutorEmail": "sistema",
+        "DataHora": "2026-08-07T01:08:22.385Z",
+        "Acao": "Criou tarefa diaria",
+        "Detalhes": "Melhorias de imagens"
+      },
+      {
+        "ID": "HIS-A2391D04",
+        "TaskID": "TSK-FF221BED",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-07T10:11:47.098Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Em Andamento"
+      },
+      {
+        "ID": "HIS-B6008769",
+        "TaskID": "TSK-E77ABEAC",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-07T10:11:50.643Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Em Andamento"
+      },
+      {
+        "ID": "HIS-EDC662A0",
+        "TaskID": "TSK-FF221BED",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-07T12:09:25.996Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Concluida"
+      },
+      {
+        "ID": "HIS-B1EE5CC9",
+        "TaskID": "TSK-D18A0B00",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-07T18:20:20.739Z",
+        "Acao": "Criou tarefa",
+        "Detalhes": "ALTERAR PREÇO FINAL SHOPEE"
+      },
+      {
+        "ID": "HIS-A5DD098C",
+        "TaskID": "TSK-D18A0B00",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-07T18:58:04.548Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Concluida"
+      },
+      {
+        "ID": "HIS-680B6EB2",
+        "TaskID": "TSK-141BFDB6",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-11T13:15:20.197Z",
+        "Acao": "Criou tarefa",
+        "Detalhes": "Verificar se foi resetado o ciclo do mês passado - Registro ponto"
+      },
+      {
+        "ID": "HIS-271E3A6B",
+        "TaskID": "TSK-A8093BFE",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-11T13:17:48.067Z",
+        "Acao": "Criou tarefa",
+        "Detalhes": "Arrumar ponto - Pedro"
+      },
+      {
+        "ID": "HIS-914A7694",
+        "TaskID": "TSK-141BFDB6",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-11T15:22:40.668Z",
+        "Acao": "Editou tarefa",
+        "Detalhes": "Verificar se foi resetado o ciclo do mês passado - Registro ponto"
+      },
+      {
+        "ID": "HIS-48D57DBB",
+        "TaskID": "TSK-A8093BFE",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-13T12:16:12.433Z",
+        "Acao": "Alterou status",
+        "Detalhes": "Concluida"
+      },
+      {
+        "ID": "HIS-7FAEEAB0",
+        "TaskID": "TSK-C52C8030",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-25T19:57:57.563Z",
+        "Acao": "Criou tarefa",
+        "Detalhes": "ANUNCIO MERCADO LIVRE"
+      },
+      {
+        "ID": "HIS-6E5B3242",
+        "TaskID": "TSK-1819B8AE",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-25T19:58:00.870Z",
+        "Acao": "Criou tarefa",
+        "Detalhes": "ANUNCIO MERCADO LIVRE"
+      },
+      {
+        "ID": "HIS-D72D8C0E",
+        "TaskID": "TSK-C52C8030",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-25T19:59:23.619Z",
+        "Acao": "Comentou",
+        "Detalhes": "ja terminou?"
+      },
+      {
+        "ID": "HIS-BCD8EF82",
+        "TaskID": "TSK-1819B8AE",
+        "AutorEmail": "annabeatriz.doctor@gmail.com",
+        "DataHora": "2026-08-25T19:59:59.834Z",
+        "Acao": "Comentou",
+        "Detalhes": "esperando voce"
+      },
+      {
+        "ID": "HIS-69124689",
+        "TaskID": "TSK-C52C8030",
+        "AutorEmail": "admin@empresa.com",
+        "DataHora": "2026-08-25T20:09:36.147Z",
+        "Acao": "Editou tarefa",
+        "Detalhes": "ANUNCIO MERCADO LIVRE 1"
+      }
+    ]
+  }
+}
