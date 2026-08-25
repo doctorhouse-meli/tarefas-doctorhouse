@@ -333,8 +333,9 @@ let currentUser = null;
           ${normalizeEmailClient(user.email) !== normalizeEmailClient(currentUser.email) ? `<button class="openChatBtn row-btn relative" data-email="${escapeHtml(user.email)}" data-name="${escapeHtml(user.nome)}">Chat<span class="chat-badge adminChatBadge hidden" data-email="${escapeHtml(user.email)}">0</span></button>` : '<span class="text-xs text-slate-400">Voce</span>'}
         </td>
         <td class="px-4 py-3">
-          <div class="flex justify-end">
+          <div class="flex justify-end gap-2">
             <button class="editUserBtn row-btn" data-user-id="${escapeHtml(user.id)}">Editar</button>
+            ${normalizeEmailClient(user.email) !== normalizeEmailClient(currentUser.email) ? `<button class="deleteUserBtn row-btn row-btn-danger" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}">Excluir</button>` : ''}
           </div>
         </td>
       </tr>
@@ -349,6 +350,9 @@ let currentUser = null;
     });
     $$('.openChatBtn').forEach((button) => {
       button.addEventListener('click', () => openChat(button.dataset.email, button.dataset.name));
+    });
+    $$('.deleteUserBtn').forEach((button) => {
+      button.addEventListener('click', () => handleDeleteUser(button.dataset.userId, button.dataset.userName));
     });
   }
 
@@ -939,7 +943,13 @@ let currentUser = null;
     event.preventDefault();
     const data = formToObject(event.target);
     if (data.id) {
-      await callServer('updateUser', data.id, data);
+      const updatedUser = await callServer('updateUser', data.id, data);
+      if (normalizeEmailClient(data.emailOriginal || currentUser.email) === normalizeEmailClient(currentUser.email)) {
+        const savedLogin = getSessionLogin() || {};
+        currentUser = { ...currentUser, ...updatedUser };
+        saveSessionLogin(updatedUser.email, data.senha || savedLogin.senha || $('#loginPassword').value || '');
+        $('#userInfo').textContent = `${currentUser.nome} - ${currentUser.perfil} - ${currentUser.workspace}`;
+      }
       showToast('Usuario atualizado.');
     } else {
       await callServer('registerUser', data);
@@ -947,6 +957,15 @@ let currentUser = null;
     }
     event.target.reset();
     closeModals();
+    await loadAdmin();
+  }
+
+  async function handleDeleteUser(userId, userName) {
+    const ok = confirm(`Deseja excluir o usuario ${userName || ''}? Ele nao conseguira mais entrar, e os modelos diarios dele serao removidos.`);
+    if (!ok) return;
+
+    await callServer('deleteUser', userId, currentUser.email);
+    showToast('Usuario excluido.');
     await loadAdmin();
   }
 
@@ -1036,10 +1055,11 @@ let currentUser = null;
   function renderChatMessages(messages) {
     $('#chatMessages').innerHTML = messages.map((message) => {
       const mine = normalizeEmailClient(message.autorEmail) === normalizeEmailClient(currentUser.email);
+      const senderName = message.autorNome || message.autorEmail;
       return `
         <div class="chat-message ${mine ? 'is-mine' : 'is-other'}">
           <div class="chat-message-meta">
-            <span>${mine ? 'Voce' : escapeHtml(message.autorPerfil === 'Admin' ? 'Admin' : message.autorEmail)}</span>
+            <span>${mine ? 'Voce' : escapeHtml(senderName)}</span>
             <span>${escapeHtml(message.dataHora || '')}</span>
           </div>
           <div class="chat-message-body">${escapeHtml(message.mensagem)}</div>
@@ -1132,13 +1152,14 @@ let currentUser = null;
     if (!isChatOpen) incrementChatBadge(collaboratorEmail, newMessages.length);
 
     const last = newMessages[newMessages.length - 1];
+    const senderName = last.autorNome || collaboratorName || collaboratorEmail;
     startTitleAlert('Nova mensagem!');
-    showTaskAlert(`Mensagem de ${collaboratorName || collaboratorEmail}`, last.mensagem, {
+    showTaskAlert(`Mensagem de ${senderName}`, last.mensagem, {
       chatEmail: collaboratorEmail,
-      chatName: collaboratorName || collaboratorEmail,
+      chatName: senderName,
     });
     playNotificationSound();
-    showBrowserChatNotification(last, collaboratorEmail, collaboratorName || collaboratorEmail);
+    showBrowserChatNotification(last, collaboratorEmail, senderName);
   }
 
   function incrementChatBadge(collaboratorEmail, count) {
