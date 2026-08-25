@@ -473,6 +473,22 @@
     padding: 0.8rem;
   }
 
+  .admin-chat-contact {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+    border-radius: 0.55rem;
+    border: 1px solid rgb(226 232 240);
+    background: white;
+    padding: 0.75rem 0.85rem;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.045);
+  }
+
+  .admin-chat-contact:hover {
+    background: rgb(248 250 252);
+  }
+
   .chat-message {
     max-width: min(86%, 34rem);
     border-radius: 0.65rem;
@@ -559,5 +575,10 @@
 
     .employee-row-actions {
       justify-content: flex-start;
+    }
+
+    .admin-chat-contact {
+      align-items: stretch;
+      flex-direction: column;
     }
   }

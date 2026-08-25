@@ -39,6 +39,7 @@ let currentUser = null;
     $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
     $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
     $('#chatForm').addEventListener('submit', handleSendChatMessage);
+    $('#openAdminChatsBtn').addEventListener('click', openAdminChatHub);
     $('#openEmployeeTemplatesBtn').addEventListener('click', async () => {
       await loadEmployeeTemplates();
       openModal('employeeTemplatesListModal');
@@ -903,6 +904,7 @@ let currentUser = null;
   async function openChat(collaboratorEmail, collaboratorName = '') {
     selectedChatCollaboratorEmail = collaboratorEmail;
     clearChatBadge(collaboratorEmail);
+    closeModals();
 
     $('#chatTitle').textContent = currentUser.perfil === 'Admin'
       ? `Chat com ${collaboratorName || collaboratorEmail}`
@@ -911,6 +913,50 @@ let currentUser = null;
 
     await loadChatMessages(false);
     openModal('chatModal');
+  }
+
+  async function openAdminChatHub() {
+    if (!currentUser || currentUser.perfil !== 'Admin') return;
+    const contacts = await callServer('getChatContacts');
+    renderAdminChatHub(contacts);
+    openModal('adminChatHubModal');
+  }
+
+  function renderAdminChatHub(contacts) {
+    $('#adminChatHubList').innerHTML = contacts.map((contact) => {
+      const unread = getAdminUnreadCount(contact.email);
+      return `
+        <div class="admin-chat-contact">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="font-black text-slate-900">${escapeHtml(contact.nome)}</p>
+              ${unread ? `<span class="rounded-full bg-red-50 px-2 py-1 text-xs font-black text-red-700">${unread} nova${unread === 1 ? '' : 's'}</span>` : ''}
+            </div>
+            <p class="mt-1 text-xs font-medium text-slate-500">${escapeHtml(contact.email)} | ${escapeHtml(contact.workspace || 'Sem workspace')}</p>
+            <p class="mt-1 text-xs text-slate-400">${contact.ultimaMensagem ? `Ultima mensagem: ${escapeHtml(contact.ultimaMensagem)}` : 'Sem mensagens recentes'}</p>
+          </div>
+          <button class="openHubChatBtn row-btn" data-email="${escapeHtml(contact.email)}" data-name="${escapeHtml(contact.nome)}">Abrir chat</button>
+        </div>
+      `;
+    }).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Nenhum colaborador encontrado.</p>';
+
+    $$('.openHubChatBtn').forEach((button) => {
+      button.addEventListener('click', () => openChat(button.dataset.email, button.dataset.name));
+    });
+  }
+
+  function getAdminUnreadCount(collaboratorEmail) {
+    const badge = $$('.adminChatBadge')
+      .find((item) => normalizeEmailClient(item.dataset.email) === normalizeEmailClient(collaboratorEmail));
+    return Number(badge?.textContent || '0');
+  }
+
+  function updateAdminGlobalChatBadge() {
+    const badge = $('#adminChatGlobalBadge');
+    if (!badge) return;
+    const total = $$('.adminChatBadge').reduce((sum, item) => sum + Number(item.textContent || '0'), 0);
+    badge.textContent = total;
+    badge.classList.toggle('hidden', total <= 0);
   }
 
   async function loadChatMessages(shouldNotify = true) {
@@ -1018,6 +1064,7 @@ let currentUser = null;
       if (isChatOpen) renderChatMessages(messages);
       notifyNewChatMessages(messages, true, contact.email, contact.nome);
     }
+    if (!$('#adminChatHubModal').classList.contains('hidden')) renderAdminChatHub(contacts);
   }
 
   function notifyNewChatMessages(messages, shouldNotify, collaboratorEmail = selectedChatCollaboratorEmail, collaboratorName = '') {
@@ -1060,6 +1107,7 @@ let currentUser = null;
       badge.textContent = current;
       badge.classList.remove('hidden');
     });
+    updateAdminGlobalChatBadge();
   }
 
   function clearChatBadge(collaboratorEmail) {
@@ -1075,6 +1123,7 @@ let currentUser = null;
       badge.textContent = '0';
       badge.classList.add('hidden');
     });
+    updateAdminGlobalChatBadge();
   }
 
   function showBrowserChatNotification(message, senderLabel) {

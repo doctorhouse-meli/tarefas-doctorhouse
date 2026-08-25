@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=20260825-2">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -116,6 +116,10 @@
             </div>
             <div class="flex flex-wrap gap-2">
               <button data-modal="taskModal" data-mode="create" class="btn-primary">Nova Tarefa</button>
+              <button id="openAdminChatsBtn" type="button" class="btn-secondary relative">
+                Chats
+                <span id="adminChatGlobalBadge" class="chat-badge hidden">0</span>
+              </button>
               <button data-modal="templateModal" class="btn-secondary">Novo Modelo Diario</button>
               <button data-modal="userModal" data-mode="create" class="btn-secondary">Novo Funcionario</button>
               <button data-modal="workspaceModal" class="btn-secondary">Novo Workspace</button>
@@ -410,6 +414,19 @@
       </div>
     </div>
 
+    <div id="adminChatHubModal" class="modal hidden">
+      <div class="modal-panel max-w-3xl">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-semibold">Central de chats</h2>
+            <p class="mt-1 text-sm text-slate-500">Converse com colaboradores. As mensagens somem automaticamente apos 24h.</p>
+          </div>
+          <button type="button" class="closeModal rounded-md border px-3 py-2 text-sm">Fechar</button>
+        </div>
+        <div id="adminChatHubList" class="mt-4 max-h-[28rem] space-y-2 overflow-y-auto"></div>
+      </div>
+    </div>
+
     <div id="notificationPromptModal" class="modal hidden">
       <div class="modal-panel max-w-md">
         <h2 class="text-xl font-black">Receber avisos de novas tarefas?</h2>
@@ -422,7 +439,7 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js"></script>
+    <script src="/app.js?v=20260825-2"></script>
   </body>
 </html>
 

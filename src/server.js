@@ -803,7 +803,13 @@ function authorizeRpc(functionName, args, req) {
 export function createApp() {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
-  app.use(express.static(PUBLIC_DIR));
+  app.use(express.static(PUBLIC_DIR, {
+    setHeaders(res, filePath) {
+      if (/\.(html|css|js)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      }
+    },
+  }));
 
   app.post('/api/rpc/:functionName', async (req, res) => {
     try {
@@ -825,6 +831,7 @@ export function createApp() {
   });
 
   app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
   });
 
