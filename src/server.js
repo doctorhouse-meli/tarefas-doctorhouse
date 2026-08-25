@@ -142,6 +142,7 @@ function formatWorkspace(row) {
 
 function formatTask(row) {
   const completedSort = row.data_conclusao ? new Date(row.data_conclusao).getTime() : 0;
+  const createdSort = row.data_criacao ? new Date(row.data_criacao).getTime() : 0;
   return {
     id: row.id,
     workspace: row.workspace,
@@ -153,6 +154,7 @@ function formatTask(row) {
     atribuidoPara: row.atribuido_para,
     tipo: row.tipo,
     dataCriacao: toDateTime(row.data_criacao),
+    dataCriacaoSort: createdSort,
     dataConclusao: toDateTime(row.data_conclusao),
     dataConclusaoKey: row.data_conclusao ? toDateKey(row.data_conclusao) : '',
     dataConclusaoSort: completedSort,

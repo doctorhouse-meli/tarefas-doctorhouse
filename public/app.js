@@ -9,7 +9,7 @@ let currentUser = null;
   let chatBootstrapComplete = false;
   let titleAlertLabel = 'Nova tarefa!';
   let employeePollTimer = null;
-  let employeeTaskFilter = 'today';
+  let employeeTaskFilter = 'pending';
   let currentEmployeeTasks = [];
   let knownEmployeeTaskIds = new Set();
   let audioContext = null;
@@ -495,10 +495,7 @@ let currentUser = null;
   }
 
   function getDefaultEmployeeVisibleTasks(tasks) {
-    return tasks.filter((task) => {
-      if (task.status === 'Concluida') return isRecentCompletedTask(task);
-      return getTaskDueKey(task) === 'overdue' || getTaskDueKey(task) === 'today';
-    });
+    return getPendingTasks(tasks);
   }
 
   function getRecentCompletedTasks(tasks) {
@@ -537,6 +534,18 @@ let currentUser = null;
     });
   }
 
+  function sortRecentFirst(tasks) {
+    return [...tasks].sort((a, b) => {
+      const createdA = Number(a.dataCriacaoSort || 0);
+      const createdB = Number(b.dataCriacaoSort || 0);
+      if (createdA !== createdB) return createdB - createdA;
+      const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
+      const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
+      if (dueA !== dueB) return dueA - dueB;
+      return String(a.titulo || '').localeCompare(String(b.titulo || ''));
+    });
+  }
+
   function isRecentCompletedTask(task) {
     const today = new Date();
     const yesterday = new Date();
@@ -562,52 +571,50 @@ let currentUser = null;
   function renderEmployeeSummary(tasks) {
     $('#employeeGreeting').textContent = `Ola, ${currentUser.nome}`;
 
-    const today = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'today').length;
-    const overdue = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length;
+    const pending = getPendingTasks(tasks).length;
+    const doing = getDoingTasks(tasks).length;
+    const overdue = tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length;
     const next = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length;
-    const daily = tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida').length;
 
     $('#employeeSummary').innerHTML = `
       <div class="employee-summary-card summary-today">
-        <p>Hoje</p>
-        <strong>${today}</strong>
-        <span>tarefas para resolver</span>
-      </div>
-      <div class="employee-summary-card summary-overdue ${overdue ? 'is-danger' : ''}">
-        <p>Vencidas</p>
-        <strong>${overdue}</strong>
-        <span>precisam de atencao</span>
+        <p>Pendentes</p>
+        <strong>${pending}</strong>
+        <span>aguardando execucao</span>
       </div>
       <div class="employee-summary-card summary-next">
-        <p>Proximas</p>
-        <strong>${next}</strong>
-        <span>fora do prazo de hoje</span>
+        <p>Em andamento</p>
+        <strong>${doing}</strong>
+        <span>tarefas iniciadas</span>
+      </div>
+      <div class="employee-summary-card summary-overdue ${overdue ? 'is-danger' : ''}">
+        <p>Atrasadas</p>
+        <strong>${overdue}</strong>
+        <span>pendentes vencidas</span>
       </div>
       <div class="employee-summary-card summary-daily">
-        <p>Diarias</p>
-        <strong>${daily}</strong>
-        <span>rotinas abertas</span>
+        <p>Proximas</p>
+        <strong>${next}</strong>
+        <span>agendadas para depois</span>
       </div>
     `;
   }
 
   function renderEmployeeTaskFilters(tasks) {
     const counts = {
-      today: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'today').length,
-      overdue: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length,
+      pending: getPendingTasks(tasks).length,
+      doing: getDoingTasks(tasks).length,
+      overdue: tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length,
       next: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length,
-      daily: tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida').length,
       done: tasks.filter((task) => task.status === 'Concluida').length,
-      all: tasks.length,
     };
 
     const filters = [
-      ['today', 'Hoje'],
-      ['overdue', 'Vencidas'],
+      ['pending', 'Pendentes'],
+      ['doing', 'Em andamento'],
+      ['overdue', 'Atrasadas'],
       ['next', 'Proximas'],
-      ['daily', 'Diarias'],
       ['done', 'Concluidas'],
-      ['all', 'Todas'],
     ];
 
     $('#employeeTaskFilters').innerHTML = filters.map(([key, label]) => `
@@ -623,29 +630,27 @@ let currentUser = null;
     const button = event.target.closest('.employee-filter-btn');
     if (!button) return;
 
-    employeeTaskFilter = button.dataset.filter || 'today';
+    employeeTaskFilter = button.dataset.filter || 'pending';
     renderEmployeeTaskFilters(currentEmployeeTasks);
     renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
   }
 
   function applyEmployeeTaskFilter(tasks) {
-    if (employeeTaskFilter === 'all') return sortEmployeeTasks(tasks);
     if (employeeTaskFilter === 'done') return sortEmployeeTasks(getDoneTasks(tasks));
-    if (employeeTaskFilter === 'daily') return sortEmployeeTasks(tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida'));
-    if (employeeTaskFilter === 'overdue') return sortEmployeeTasks(getTasksByDueKey(tasks, 'overdue'));
+    if (employeeTaskFilter === 'doing') return sortEmployeeTasks(getDoingTasks(tasks));
+    if (employeeTaskFilter === 'pending') return sortRecentFirst(getPendingTasks(tasks));
+    if (employeeTaskFilter === 'overdue') return sortEmployeeTasks(tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue'));
     if (employeeTaskFilter === 'next') return sortEmployeeTasks(getTasksByDueKey(tasks, 'next'));
-    if (employeeTaskFilter === 'today') return sortEmployeeTasks(getTasksByDueKey(tasks, 'today'));
     return sortEmployeeTasks(getDefaultEmployeeVisibleTasks(tasks));
   }
 
   function renderEmployeeTasks(tasks) {
     const titles = {
-      today: 'Tarefas de hoje',
-      overdue: 'Tarefas vencidas',
+      pending: 'Tarefas pendentes',
+      doing: 'Tarefas em andamento',
+      overdue: 'Tarefas atrasadas',
       next: 'Proximas tarefas',
-      daily: 'Tarefas diarias abertas',
       done: 'Tarefas concluidas',
-      all: 'Todas as tarefas',
     };
 
     $('#employeeTasks').innerHTML = `

@@ -428,9 +428,14 @@
     box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
   }
 
-  .employee-filter-btn.filter-today {
+  .employee-filter-btn.filter-pending {
     border-color: #fed7aa;
     background: linear-gradient(180deg, #fff7ed, #ffffff);
+  }
+
+  .employee-filter-btn.filter-doing {
+    border-color: #bfdbfe;
+    background: linear-gradient(180deg, #eff6ff, #ffffff);
   }
 
   .employee-filter-btn.filter-overdue {
@@ -443,19 +448,9 @@
     background: linear-gradient(180deg, #eff6ff, #ffffff);
   }
 
-  .employee-filter-btn.filter-daily {
-    border-color: #bbf7d0;
-    background: linear-gradient(180deg, #ecfdf5, #ffffff);
-  }
-
   .employee-filter-btn.filter-done {
     border-color: #a7f3d0;
     background: linear-gradient(180deg, #f0fdf4, #ffffff);
-  }
-
-  .employee-filter-btn.filter-all {
-    border-color: #ddd6fe;
-    background: linear-gradient(180deg, #f5f3ff, #ffffff);
   }
 
   .employee-filter-btn.is-active {
