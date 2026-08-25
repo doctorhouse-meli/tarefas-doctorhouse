@@ -51,6 +51,12 @@ function weekdayKey(dateKey = todayKey()) {
 function toDateKey(value) {
   if (!value) return '';
   if (typeof value === 'string') return value.slice(0, 10);
+  if (value instanceof Date) {
+    const year = value.getUTCFullYear();
+    const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(value.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: TZ,
     year: 'numeric',
@@ -410,6 +416,7 @@ export async function updateTaskStatus(taskId, newStatus, userEmail) {
 }
 
 export async function getEmployeeTasks(userEmail) {
+  await generateDailyTasks();
   const result = await query(
     'SELECT * FROM tarefas WHERE atribuido_para = $1 ORDER BY data_prazo ASC, data_criacao DESC',
     [normalizeEmail(userEmail)],
@@ -418,6 +425,7 @@ export async function getEmployeeTasks(userEmail) {
 }
 
 export async function getAdminDashboardData() {
+  await generateDailyTasks();
   const [tasksResult, usersResult, workspaces] = await Promise.all([
     query('SELECT * FROM tarefas ORDER BY data_prazo ASC, data_criacao DESC'),
     query('SELECT * FROM usuarios ORDER BY nome'),

@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 
 const { Pool } = pg;
 
+pg.types.setTypeParser(1082, (value) => value);
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.PGSSLMODE === 'disable' ? false : { rejectUnauthorized: false },

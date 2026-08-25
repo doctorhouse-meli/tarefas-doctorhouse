@@ -538,32 +538,31 @@ let currentUser = null;
   function renderEmployeeSummary(tasks) {
     $('#employeeGreeting').textContent = `Ola, ${currentUser.nome}`;
 
-    const pending = tasks.filter((task) => task.status === 'Pendente').length;
-    const doing = tasks.filter((task) => task.status === 'Em Andamento').length;
-    const done = tasks.filter((task) => task.status === 'Concluida').length;
+    const today = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'today').length;
     const overdue = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length;
-    const totalOpen = tasks.filter((task) => task.status !== 'Concluida').length;
+    const next = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length;
+    const daily = tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida').length;
 
     $('#employeeSummary').innerHTML = `
-      <div class="employee-summary-card bg-gradient-to-br from-orange-500 to-amber-500">
-        <p class="text-xs font-bold uppercase text-orange-50">Para iniciar</p>
-        <p class="mt-1 text-3xl font-black">${pending}</p>
-        <p class="text-xs text-orange-50">tarefas pendentes</p>
+      <div class="employee-summary-card">
+        <p>Hoje</p>
+        <strong>${today}</strong>
+        <span>tarefas para resolver</span>
       </div>
-      <div class="employee-summary-card bg-gradient-to-br from-sky-500 to-blue-600">
-        <p class="text-xs font-bold uppercase text-sky-50">Vencidas</p>
-        <p class="mt-1 text-3xl font-black">${overdue}</p>
-        <p class="text-xs text-sky-50">precisam de atencao</p>
+      <div class="employee-summary-card ${overdue ? 'is-danger' : ''}">
+        <p>Vencidas</p>
+        <strong>${overdue}</strong>
+        <span>precisam de atencao</span>
       </div>
-      <div class="employee-summary-card bg-gradient-to-br from-rose-500 to-red-600">
-        <p class="text-xs font-bold uppercase text-rose-50">Abertas</p>
-        <p class="mt-1 text-3xl font-black">${totalOpen}</p>
-        <p class="text-xs text-rose-50">pendentes e andamento</p>
+      <div class="employee-summary-card">
+        <p>Proximas</p>
+        <strong>${next}</strong>
+        <span>fora do prazo de hoje</span>
       </div>
-      <div class="employee-summary-card bg-gradient-to-br from-emerald-500 to-teal-600">
-        <p class="text-xs font-bold uppercase text-emerald-50">Andamento / feitas</p>
-        <p class="mt-1 text-3xl font-black">${doing}/${done}</p>
-        <p class="text-xs text-emerald-50">em curso e recentes</p>
+      <div class="employee-summary-card">
+        <p>Diarias</p>
+        <strong>${daily}</strong>
+        <span>rotinas abertas</span>
       </div>
     `;
   }
@@ -573,9 +572,7 @@ let currentUser = null;
       today: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'today').length,
       overdue: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length,
       next: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length,
-      pending: tasks.filter((task) => task.status === 'Pendente').length,
-      doing: tasks.filter((task) => task.status === 'Em Andamento').length,
-      open: tasks.filter((task) => task.status !== 'Concluida').length,
+      daily: tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida').length,
       done: tasks.filter((task) => task.status === 'Concluida').length,
       all: tasks.length,
     };
@@ -584,16 +581,15 @@ let currentUser = null;
       ['today', 'Hoje'],
       ['overdue', 'Vencidas'],
       ['next', 'Proximas'],
-      ['pending', 'Pendentes'],
-      ['doing', 'Em andamento'],
-      ['open', 'Abertas'],
+      ['daily', 'Diarias'],
       ['done', 'Concluidas'],
       ['all', 'Todas'],
     ];
 
     $('#employeeTaskFilters').innerHTML = filters.map(([key, label]) => `
-      <button class="employeeFilterBtn rounded-md border px-3 py-2 text-xs font-black ${employeeTaskFilter === key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700'}" data-filter="${key}">
-        ${label} <span class="ml-1 opacity-70">${counts[key]}</span>
+      <button class="employee-filter-btn ${employeeTaskFilter === key ? 'is-active' : ''}" data-filter="${key}">
+        <span>${label}</span>
+        <strong>${counts[key]}</strong>
       </button>
     `).join('');
 
@@ -609,9 +605,7 @@ let currentUser = null;
   function applyEmployeeTaskFilter(tasks) {
     if (employeeTaskFilter === 'all') return sortEmployeeTasks(tasks);
     if (employeeTaskFilter === 'done') return sortEmployeeTasks(getDoneTasks(tasks));
-    if (employeeTaskFilter === 'pending') return sortEmployeeTasks(getPendingTasks(tasks));
-    if (employeeTaskFilter === 'doing') return sortEmployeeTasks(getDoingTasks(tasks));
-    if (employeeTaskFilter === 'open') return sortEmployeeTasks(getOpenTasks(tasks));
+    if (employeeTaskFilter === 'daily') return sortEmployeeTasks(tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida'));
     if (employeeTaskFilter === 'overdue') return sortEmployeeTasks(getTasksByDueKey(tasks, 'overdue'));
     if (employeeTaskFilter === 'next') return sortEmployeeTasks(getTasksByDueKey(tasks, 'next'));
     if (employeeTaskFilter === 'today') return sortEmployeeTasks(getTasksByDueKey(tasks, 'today'));
@@ -619,32 +613,34 @@ let currentUser = null;
   }
 
   function renderEmployeeTasks(tasks) {
-    const doneTitle = employeeTaskFilter === 'done' || employeeTaskFilter === 'all'
-      ? 'Concluidas'
-      : 'Concluidas recentes';
-    const groups = [
-      { key: 'overdue', title: 'Atrasadas', icon: '!', className: 'employee-column-pendente' },
-      { key: 'today', title: 'Hoje', icon: 'H', className: 'employee-column-andamento' },
-      { key: 'next', title: 'Proximas', icon: '>', className: 'employee-column-pendente' },
-      { key: 'done', title: doneTitle, icon: 'OK', className: 'employee-column-concluida' },
-    ];
-    $('#employeeTasks').innerHTML = groups.map((status) => {
-      const groupTasks = getTasksForDueColumn(tasks, status.key);
-      return `
-        <section class="employee-column ${status.className}">
-          <div class="flex items-center justify-between">
-            <h2 class="flex items-center gap-2 text-base font-black">
-              <span class="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs shadow-sm">${status.icon}</span>
-              ${status.title}
-            </h2>
-            <span class="rounded-full bg-white px-2.5 py-1 text-xs font-black shadow-sm">${groupTasks.length}</span>
+    const titles = {
+      today: 'Tarefas de hoje',
+      overdue: 'Tarefas vencidas',
+      next: 'Proximas tarefas',
+      daily: 'Tarefas diarias abertas',
+      done: 'Tarefas concluidas',
+      all: 'Todas as tarefas',
+    };
+
+    $('#employeeTasks').innerHTML = `
+      <section class="employee-list-panel">
+        <div class="employee-list-header">
+          <div>
+            <h2>${titles[employeeTaskFilter] || 'Minhas tarefas'}</h2>
+            <p>${tasks.length} tarefa${tasks.length === 1 ? '' : 's'} encontrada${tasks.length === 1 ? '' : 's'}</p>
           </div>
-          <div class="mt-2 space-y-1.5">
-            ${groupTasks.map(renderEmployeeTaskCard).join('') || '<p class="rounded-md bg-white/70 p-2 text-xs font-medium text-slate-500">Nenhuma tarefa aqui.</p>'}
-          </div>
-        </section>
-      `;
-    }).join('');
+          <button id="employeeTemplatesShortcut" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700">Tarefas diarias</button>
+        </div>
+        <div class="employee-list-table">
+          ${tasks.map(renderEmployeeTaskCard).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm font-medium text-slate-500">Nenhuma tarefa nesta visualizacao.</p>'}
+        </div>
+      </section>
+    `;
+
+    $('#employeeTemplatesShortcut').addEventListener('click', async () => {
+      await loadEmployeeTemplates();
+      openModal('employeeTemplatesListModal');
+    });
 
     $$('.taskDetailsBtn').forEach((button) => {
       button.addEventListener('click', () => openTaskDetails(tasks.find((task) => task.id === button.dataset.taskId)));
@@ -655,22 +651,25 @@ let currentUser = null;
   }
 
   function renderEmployeeTaskCard(task) {
+    const dueKey = getTaskDueKey(task);
     return `
-      <article class="employee-task-card">
+      <article class="employee-task-row ${dueKey === 'overdue' && task.status !== 'Concluida' ? 'is-overdue' : ''}">
         <div class="min-w-0">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
             <button class="taskDetailsBtn text-left text-sm font-black leading-tight text-slate-900 hover:text-sky-700" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.titulo)}</button>
             ${priorityBadge(task.prioridade)}
             ${statusBadge(task.status)}
           </div>
-          <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
-            <span>${escapeHtml(task.dataPrazo || 'Sem prazo')}</span>
+          <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-slate-500">
+            <span>${escapeHtml(formatDueLabel(task))}</span>
             <span class="text-slate-300">|</span>
             <span>${escapeHtml(task.workspace || '')}</span>
-            <span class="font-normal text-slate-400">${escapeHtml(task.descricao || '')}</span>
+            <span class="text-slate-300">|</span>
+            <span>${escapeHtml(task.tipo || 'Manual')}</span>
+            ${task.descricao ? `<span class="font-normal text-slate-400">${escapeHtml(task.descricao)}</span>` : ''}
           </div>
         </div>
-        <div class="flex flex-wrap justify-start gap-1.5">
+        <div class="employee-row-actions">
           ${renderEmployeeActionButtons(task)}
           <button class="taskDetailsBtn employee-action-btn border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
         </div>
@@ -719,6 +718,15 @@ let currentUser = null;
     if (task.dataPrazo < todayKey) return 'overdue';
     if (task.dataPrazo === todayKey) return 'today';
     return 'next';
+  }
+
+  function formatDueLabel(task) {
+    if (!task.dataPrazo) return 'Sem prazo';
+    const dueKey = getTaskDueKey(task);
+    if (task.status === 'Concluida') return `Prazo: ${task.dataPrazo}`;
+    if (dueKey === 'today') return `Hoje: ${task.dataPrazo}`;
+    if (dueKey === 'overdue') return `Vencida: ${task.dataPrazo}`;
+    return `Prazo: ${task.dataPrazo}`;
   }
 
   function getStatusWeight(status) {

@@ -58,6 +58,14 @@ Cron Schedule: 0 9 * * *
 
 Observacao: o cron do Railway usa UTC. `0 9 * * *` roda 06:00 no horario de Brasilia. Ajuste conforme o horario desejado.
 
+Mesmo com o cron, o painel tambem tenta gerar as tarefas diarias do dia quando admin ou colaborador abre a dashboard. O sistema evita duplicatas pelo titulo, workspace, responsavel, data e tipo `Diaria`.
+
+## Datas
+
+Prazos sao salvos como `DATE` no PostgreSQL e retornam para o painel no formato `YYYY-MM-DD`.
+
+Isso evita o problema de fuso horario em que uma tarefa de hoje poderia aparecer como ontem/vencida no Brasil.
+
 ## Login inicial
 
 Ao abrir pela primeira vez, o banco cria automaticamente:
