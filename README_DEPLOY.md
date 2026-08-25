@@ -80,6 +80,22 @@ Depois entre no painel e cadastre seus colaboradores.
 - `src/importSheets.js`: importacao dos dados antigos exportados do Google Sheets.
 - `migration/ExportarDados.gs`: exportador para colar no Apps Script antigo.
 
+## Usuarios
+
+No painel Admin existe uma tabela `Usuarios`.
+
+O admin pode:
+
+- Ver usuarios cadastrados.
+- Criar novo usuario.
+- Alterar nome.
+- Alterar e-mail/login.
+- Alterar senha.
+- Alterar perfil `Admin` ou `Colaborador`.
+- Alterar workspace.
+
+Ao alterar o e-mail/login, o sistema tambem atualiza as tarefas, modelos diarios, comentarios e historico vinculados ao e-mail antigo.
+
 ## Migracao dos dados antigos
 
 Veja o passo a passo em:

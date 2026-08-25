@@ -1,6 +1,6 @@
 let currentUser = null;
   let authToken = '';
-  let adminData = { tasks: [], colaboradores: [], workspaces: [], stats: {} };
+  let adminData = { tasks: [], usuarios: [], colaboradores: [], workspaces: [], stats: {} };
   let selectedTask = null;
   let employeePollTimer = null;
   let employeeTaskFilter = 'today';
@@ -50,6 +50,7 @@ let currentUser = null;
     $$('[data-modal]').forEach((button) => {
       button.addEventListener('click', () => {
         if (button.dataset.modal === 'taskModal' && button.dataset.mode === 'create') resetTaskForm();
+        if (button.dataset.modal === 'userModal' && button.dataset.mode === 'create') resetUserForm();
         closeModals();
         openModal(button.dataset.modal);
       });
@@ -191,6 +192,7 @@ let currentUser = null;
     renderAdminTodayPanel();
     renderAdminSelects();
     renderAdminTasks();
+    renderAdminUsers();
   }
 
   function renderAdminStats() {
@@ -294,6 +296,63 @@ let currentUser = null;
     $$('.deleteTaskBtn').forEach((button) => {
       button.addEventListener('click', () => handleDeleteTask(button.dataset.taskId));
     });
+  }
+
+  function renderAdminUsers() {
+    const users = adminData.usuarios || [];
+    $('#adminUserRows').innerHTML = users.map((user) => `
+      <tr>
+        <td class="px-4 py-3">
+          <div class="font-medium">${escapeHtml(user.nome)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(user.id || '')}</div>
+        </td>
+        <td class="px-4 py-3">${escapeHtml(user.email)}</td>
+        <td class="px-4 py-3">${escapeHtml(user.perfil)}</td>
+        <td class="px-4 py-3">${escapeHtml(user.workspace || '')}</td>
+        <td class="px-4 py-3">
+          <div class="flex justify-end">
+            <button class="editUserBtn rounded-md border px-2 py-1 text-xs" data-user-id="${escapeHtml(user.id)}">Editar</button>
+          </div>
+        </td>
+      </tr>
+    `).join('') || `
+      <tr>
+        <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">Nenhum usuario cadastrado.</td>
+      </tr>
+    `;
+
+    $$('.editUserBtn').forEach((button) => {
+      button.addEventListener('click', () => openEditUser(button.dataset.userId));
+    });
+  }
+
+  function resetUserForm() {
+    $('#userModalTitle').textContent = 'Novo Usuario';
+    const form = $('#userForm');
+    form.reset();
+    form.elements.id.value = '';
+    form.elements.emailOriginal.value = '';
+    form.elements.senha.required = true;
+    form.elements.senha.placeholder = 'Senha';
+    form.elements.perfil.value = 'Colaborador';
+  }
+
+  function openEditUser(userId) {
+    const user = (adminData.usuarios || []).find((item) => item.id === userId);
+    if (!user) return;
+
+    $('#userModalTitle').textContent = 'Editar Usuario';
+    const form = $('#userForm');
+    form.elements.id.value = user.id || '';
+    form.elements.emailOriginal.value = user.email || '';
+    form.elements.nome.value = user.nome || '';
+    form.elements.email.value = user.email || '';
+    form.elements.senha.value = '';
+    form.elements.senha.required = false;
+    form.elements.senha.placeholder = 'Nova senha (deixe vazio para manter)';
+    form.elements.perfil.value = user.perfil || 'Colaborador';
+    form.elements.workspace.value = user.workspace || '';
+    openModal('userModal');
   }
 
   function resetTaskForm() {
@@ -786,10 +845,16 @@ let currentUser = null;
 
   async function handleRegisterUser(event) {
     event.preventDefault();
-    await callServer('registerUser', formToObject(event.target));
+    const data = formToObject(event.target);
+    if (data.id) {
+      await callServer('updateUser', data.id, data);
+      showToast('Usuario atualizado.');
+    } else {
+      await callServer('registerUser', data);
+      showToast('Usuario cadastrado.');
+    }
     event.target.reset();
     closeModals();
-    showToast('Usuario cadastrado.');
     await loadAdmin();
   }
 

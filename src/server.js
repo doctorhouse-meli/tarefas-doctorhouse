@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initDb, makeId, query } from './db.js';
+import { initDb, makeId, pool, query } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -267,6 +267,61 @@ export async function registerUser(userData) {
   return sanitizeUser(result.rows[0]);
 }
 
+export async function updateUser(userId, userData) {
+  requireFields(userData, ['nome', 'email', 'perfil', 'workspace']);
+  await ensureWorkspaceExists(userData.workspace);
+
+  const current = await query('SELECT * FROM usuarios WHERE id = $1', [userId]);
+  if (!current.rowCount) throw new Error('Usuario nao encontrado.');
+
+  const oldEmail = normalizeEmail(current.rows[0].email);
+  const newEmail = normalizeEmail(userData.email);
+  const senha = String(userData.senha || '').trim() || current.rows[0].senha;
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      `UPDATE usuarios
+       SET nome = $2,
+           email = $3,
+           senha = $4,
+           perfil = $5,
+           workspace = $6
+       WHERE id = $1
+       RETURNING *`,
+      [
+        userId,
+        userData.nome,
+        newEmail,
+        senha,
+        userData.perfil === 'Admin' ? 'Admin' : 'Colaborador',
+        userData.workspace,
+      ],
+    );
+
+    if (oldEmail !== newEmail) {
+      await client.query('UPDATE tarefas SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
+      await client.query('UPDATE templates_diarios SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
+      await client.query('UPDATE comentarios SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
+      await client.query('UPDATE historico SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
+    }
+
+    await client.query('COMMIT');
+    return sanitizeUser(result.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (String(error.message || '').includes('duplicate key')) {
+      throw new Error('Este e-mail ja esta em uso por outro usuario.');
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function createTask(taskData) {
   requireFields(taskData, ['workspace', 'titulo', 'prioridade', 'dataPrazo', 'atribuidoPara']);
   await ensureWorkspaceExists(taskData.workspace);
@@ -373,6 +428,7 @@ export async function getAdminDashboardData() {
   const colaboradores = users.filter((user) => user.perfil === 'Colaborador');
   return {
     tasks,
+    usuarios: users,
     colaboradores,
     workspaces,
     todayPanel: buildAdminTodayPanel(tasks, colaboradores),
@@ -587,6 +643,7 @@ const rpc = {
   updateTask,
   deleteTask,
   registerUser,
+  updateUser,
   getEmployeeTasks,
   updateTaskStatus,
   createDailyTemplate,
@@ -611,6 +668,7 @@ const adminOnly = new Set([
   'updateTask',
   'deleteTask',
   'registerUser',
+  'updateUser',
   'createDailyTemplate',
   'generateDailyTasks',
 ]);
