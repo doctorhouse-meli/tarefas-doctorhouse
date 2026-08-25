@@ -1,0 +1,19 @@
+{
+  "name": "dashboard-tarefas-railway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "cron:daily": "node src/cron.js",
+    "import:sheets": "node src/importSheets.js data/sheets-export.json",
+    "check": "node --check src/server.js && node --check src/cron.js && node --check src/importSheets.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  }
+}

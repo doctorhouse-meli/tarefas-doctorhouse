@@ -1,0 +1,1080 @@
+let currentUser = null;
+  let authToken = '';
+  let adminData = { tasks: [], colaboradores: [], workspaces: [], stats: {} };
+  let selectedTask = null;
+  let employeePollTimer = null;
+  let employeeTaskFilter = 'today';
+  let knownEmployeeTaskIds = new Set();
+  let audioContext = null;
+  let originalPageTitle = document.title || 'Dashboard de Tarefas';
+  let originalFaviconHref = '';
+  let titleAlertTimer = null;
+  let unreadTaskNotifications = 0;
+  const SESSION_LOGIN_KEY = 'taskDashboardSessionLogin';
+  const NOTIFICATION_PROMPT_KEY = 'taskDashboardNotificationPromptHandledV2';
+
+  const $ = (selector) => document.querySelector(selector);
+  const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+  document.addEventListener('DOMContentLoaded', () => {
+    $('#loginForm').addEventListener('submit', handleLogin);
+    $('#logoutBtn').addEventListener('click', logout);
+    $('#filterEmployee').addEventListener('change', renderAdminTasks);
+    $('#filterWorkspace').addEventListener('change', renderAdminTasks);
+    $('#filterStatus').addEventListener('change', renderAdminTasks);
+    $('#taskForm').addEventListener('submit', handleSaveTask);
+    $('#templateForm').addEventListener('submit', handleCreateTemplate);
+    $('#userForm').addEventListener('submit', handleRegisterUser);
+    $('#workspaceForm').addEventListener('submit', handleCreateWorkspace);
+    $('#commentForm').addEventListener('submit', handleAddComment);
+    $('#checklistForm').addEventListener('submit', handleAddChecklistItem);
+    $('#employeeTemplateForm').addEventListener('submit', handleCreateEmployeeTemplate);
+    $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
+    $('#openEmployeeTemplatesBtn').addEventListener('click', async () => {
+      await loadEmployeeTemplates();
+      openModal('employeeTemplatesListModal');
+    });
+    $('#allowNotificationsBtn').addEventListener('click', async () => {
+      const permission = await prepareNotifications(true);
+      playNotificationSound();
+      sessionStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
+      if (permission === 'granted') localStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
+      closeModals();
+      showTaskAlert('Notificacoes ativadas', 'Quando uma tarefa nova chegar, voce vai ver este aviso e ouvir um som.');
+    });
+    $('#skipNotificationsBtn').addEventListener('click', () => {
+      sessionStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
+      closeModals();
+    });
+
+    $$('[data-modal]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (button.dataset.modal === 'taskModal' && button.dataset.mode === 'create') resetTaskForm();
+        closeModals();
+        openModal(button.dataset.modal);
+      });
+    });
+    $$('.closeModal').forEach((button) => {
+      button.addEventListener('click', () => closeModals());
+    });
+
+    window.addEventListener('focus', () => {
+      if (currentUser && currentUser.perfil === 'Colaborador') clearTitleAlert();
+    });
+    document.addEventListener('click', () => {
+      if (currentUser && currentUser.perfil === 'Colaborador') clearTitleAlert();
+    });
+
+    initializeAuth();
+  });
+
+  async function callServer(functionName, ...args) {
+    const response = await fetch('/api/rpc/' + encodeURIComponent(functionName), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+      },
+      body: JSON.stringify({ args }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.error || 'Erro no servidor.');
+    return data.result;
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    const errorBox = $('#loginError');
+    errorBox.classList.add('hidden');
+
+    try {
+      const email = $('#loginEmail').value;
+      const senha = $('#loginPassword').value;
+      currentUser = await callServer('loginUser', email, senha);
+      authToken = currentUser.token || '';
+      saveSessionLogin(email, senha);
+      await enterDashboard();
+    } catch (error) {
+      errorBox.textContent = error.message || 'Nao foi possivel entrar.';
+      errorBox.classList.remove('hidden');
+    }
+  }
+
+  function logout() {
+    stopEmployeePolling();
+    sessionStorage.removeItem(SESSION_LOGIN_KEY);
+    currentUser = null;
+    authToken = '';
+    $('#authLoadingView').classList.add('hidden');
+    $('#dashboardView').classList.add('hidden');
+    $('#adminView').classList.add('hidden');
+    $('#employeeView').classList.add('hidden');
+    $('#loginView').classList.remove('hidden');
+    $('#loginView').classList.add('flex');
+    $('#loginForm').reset();
+  }
+
+  async function initializeAuth() {
+    const savedLogin = getSessionLogin();
+    if (!savedLogin || !savedLogin.email || !savedLogin.senha) {
+      showLogin();
+      return;
+    }
+
+    await tryAutoLogin(savedLogin);
+  }
+
+  async function tryAutoLogin(savedLogin) {
+    if (!savedLogin || !savedLogin.email || !savedLogin.senha) return;
+
+    $('#loginEmail').value = savedLogin.email;
+    $('#loginPassword').value = savedLogin.senha;
+
+    try {
+      currentUser = await callServer('loginUser', savedLogin.email, savedLogin.senha);
+      authToken = currentUser.token || '';
+      await enterDashboard();
+    } catch (error) {
+      sessionStorage.removeItem(SESSION_LOGIN_KEY);
+      showLogin();
+      showToast('Sessao expirada. Entre novamente.');
+    }
+  }
+
+  function showLogin() {
+    $('#authLoadingView').classList.add('hidden');
+    $('#dashboardView').classList.add('hidden');
+    $('#loginView').classList.remove('hidden');
+    $('#loginView').classList.add('flex');
+  }
+
+  async function enterDashboard() {
+    $('#authLoadingView').classList.add('hidden');
+    $('#loginView').classList.add('hidden');
+    $('#loginView').classList.remove('flex');
+    $('#dashboardView').classList.remove('hidden');
+    $('#userInfo').textContent = `${currentUser.nome} - ${currentUser.perfil} - ${currentUser.workspace}`;
+    clearTitleAlert();
+    unlockNotificationSound();
+
+    if (currentUser.perfil === 'Admin') {
+      await loadAdmin();
+    } else {
+      await loadEmployee(true);
+      maybeShowNotificationPrompt();
+      startEmployeePolling();
+    }
+  }
+
+  function saveSessionLogin(email, senha) {
+    sessionStorage.setItem(SESSION_LOGIN_KEY, JSON.stringify({
+      email,
+      senha,
+      savedAt: new Date().toISOString(),
+    }));
+  }
+
+  function getSessionLogin() {
+    try {
+      return JSON.parse(sessionStorage.getItem(SESSION_LOGIN_KEY));
+    } catch (error) {
+      sessionStorage.removeItem(SESSION_LOGIN_KEY);
+      return null;
+    }
+  }
+
+  async function loadAdmin() {
+    $('#adminView').classList.remove('hidden');
+    $('#employeeView').classList.add('hidden');
+    adminData = await callServer('getAdminDashboardData');
+    renderAdminStats();
+    renderAdminTodayPanel();
+    renderAdminSelects();
+    renderAdminTasks();
+  }
+
+  function renderAdminStats() {
+    $('#statPendente').textContent = adminData.stats.pendentes || 0;
+    $('#statAndamento').textContent = adminData.stats.emAndamento || 0;
+    $('#statConcluida').textContent = adminData.stats.concluidas || 0;
+    $('#statTotal').textContent = adminData.stats.total || 0;
+  }
+
+  function renderAdminTodayPanel() {
+    const panel = adminData.todayPanel || { atrasadas: [], hoje: [], porColaborador: [] };
+    $('#adminTodayOverdueCount').textContent = panel.atrasadas.length;
+    $('#adminTodayDueCount').textContent = panel.hoje.length;
+
+    $('#adminTodayOverdue').innerHTML = panel.atrasadas.slice(0, 8).map(renderAdminTodayTask).join('') ||
+      '<p class="text-sm text-slate-400">Nada atrasado.</p>';
+    $('#adminTodayDue').innerHTML = panel.hoje.slice(0, 8).map(renderAdminTodayTask).join('') ||
+      '<p class="text-sm text-slate-400">Nada para hoje.</p>';
+    $('#adminTodayEmployees').innerHTML = panel.porColaborador.map((item) => `
+      <div class="rounded-md border border-slate-200 p-2">
+        <div class="flex items-center justify-between gap-2">
+          <p class="truncate text-sm font-black">${escapeHtml(item.nome)}</p>
+          <span class="text-xs font-bold text-slate-500">${item.total}</span>
+        </div>
+        <p class="mt-1 text-xs text-slate-500">Hoje: ${item.hoje} | Atrasadas: ${item.atrasadas} | Andamento: ${item.andamento}</p>
+      </div>
+    `).join('') || '<p class="text-sm text-slate-400">Sem colaboradores.</p>';
+  }
+
+  function renderAdminTodayTask(task) {
+    return `
+      <div class="rounded-md border border-slate-200 p-2">
+        <p class="text-sm font-black">${escapeHtml(task.titulo)}</p>
+        <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.atribuidoPara)} | ${escapeHtml(task.dataPrazo || '')}</p>
+      </div>
+    `;
+  }
+
+  function renderAdminSelects() {
+    const employeeOptions = ['<option value="">Todos</option>']
+      .concat(adminData.colaboradores.map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(user.nome)} (${escapeHtml(user.email)})</option>`))
+      .join('');
+    $('#filterEmployee').innerHTML = employeeOptions;
+
+    const workspaceOptions = ['<option value="">Todos</option>']
+      .concat(adminData.workspaces.map((workspace) => `<option value="${escapeHtml(workspace.nome)}">${escapeHtml(workspace.nome)}</option>`))
+      .join('');
+    $('#filterWorkspace').innerHTML = workspaceOptions;
+
+    $$('.employeeSelect').forEach((select) => {
+      select.innerHTML = adminData.colaboradores
+        .map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(user.nome)} (${escapeHtml(user.email)})</option>`)
+        .join('');
+    });
+
+    $$('.workspaceSelect').forEach((select) => {
+      select.innerHTML = adminData.workspaces
+        .map((workspace) => `<option value="${escapeHtml(workspace.nome)}">${escapeHtml(workspace.nome)}</option>`)
+        .join('');
+    });
+  }
+
+  function renderAdminTasks() {
+    const employee = $('#filterEmployee').value;
+    const workspace = $('#filterWorkspace').value;
+    const status = $('#filterStatus').value;
+    const tasks = adminData.tasks.filter((task) => {
+      const matchesEmployee = !employee || task.atribuidoPara === employee;
+      const matchesWorkspace = !workspace || task.workspace === workspace;
+      const matchesStatus = !status || task.status === status;
+      return matchesEmployee && matchesWorkspace && matchesStatus;
+    });
+
+    $('#adminTaskRows').innerHTML = tasks.map((task) => `
+      <tr>
+        <td class="px-4 py-3">
+          <div class="font-medium">${escapeHtml(task.titulo)}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div>
+        </td>
+        <td class="px-4 py-3">${escapeHtml(task.atribuidoPara)}</td>
+        <td class="px-4 py-3">${priorityBadge(task.prioridade)}</td>
+        <td class="px-4 py-3">${escapeHtml(task.dataPrazo || '')}</td>
+        <td class="px-4 py-3">${statusBadge(task.status)}</td>
+        <td class="px-4 py-3">${escapeHtml(task.tipo)}</td>
+        <td class="px-4 py-3">
+          <div class="flex justify-end gap-2">
+            <button class="adminDetailsBtn rounded-md border px-2 py-1 text-xs" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
+            <button class="editTaskBtn rounded-md border px-2 py-1 text-xs" data-task-id="${escapeHtml(task.id)}">Editar</button>
+            <button class="deleteTaskBtn rounded-md bg-red-600 px-2 py-1 text-xs text-white" data-task-id="${escapeHtml(task.id)}">Excluir</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    $$('.editTaskBtn').forEach((button) => {
+      button.addEventListener('click', () => openEditTask(button.dataset.taskId));
+    });
+    $$('.adminDetailsBtn').forEach((button) => {
+      button.addEventListener('click', () => openTaskDetails(adminData.tasks.find((task) => task.id === button.dataset.taskId)));
+    });
+    $$('.deleteTaskBtn').forEach((button) => {
+      button.addEventListener('click', () => handleDeleteTask(button.dataset.taskId));
+    });
+  }
+
+  function resetTaskForm() {
+    $('#taskModalTitle').textContent = 'Nova Tarefa';
+    const form = $('#taskForm');
+    form.reset();
+    form.elements.id.value = '';
+    form.elements.status.value = 'Pendente';
+  }
+
+  function openEditTask(taskId) {
+    const task = adminData.tasks.find((item) => item.id === taskId);
+    if (!task) return;
+
+    $('#taskModalTitle').textContent = 'Editar Tarefa';
+    const form = $('#taskForm');
+    form.elements.id.value = task.id;
+    form.elements.titulo.value = task.titulo || '';
+    form.elements.descricao.value = task.descricao || '';
+    form.elements.prioridade.value = task.prioridade || 'Media';
+    form.elements.dataPrazo.value = task.dataPrazo || '';
+    form.elements.status.value = task.status || 'Pendente';
+    form.elements.atribuidoPara.value = task.atribuidoPara || '';
+    form.elements.workspace.value = task.workspace || '';
+    openModal('taskModal');
+  }
+
+  async function handleSaveTask(event) {
+    event.preventDefault();
+    const data = formToObject(event.target);
+    data.autorEmail = currentUser.email;
+
+    if (data.id) {
+      await callServer('updateTask', data.id, data);
+      showToast('Tarefa atualizada.');
+    } else {
+      await callServer('createTask', data);
+      showToast('Tarefa criada.');
+    }
+
+    event.target.reset();
+    closeModals();
+    await loadAdmin();
+  }
+
+  async function handleDeleteTask(taskId) {
+    const ok = confirm('Deseja excluir esta tarefa? Esta acao nao pode ser desfeita.');
+    if (!ok) return;
+
+    await callServer('deleteTask', taskId);
+    showToast('Tarefa excluida.');
+    await loadAdmin();
+  }
+
+  async function loadEmployee(isInitialLoad = false) {
+    $('#employeeView').classList.remove('hidden');
+    $('#adminView').classList.add('hidden');
+    const tasks = prepareEmployeeTasks(await callServer('getEmployeeTasks', currentUser.email));
+    notifyNewEmployeeTasks(tasks, isInitialLoad);
+    renderEmployeeSummary(tasks);
+    renderEmployeeTaskFilters(tasks);
+    renderEmployeeTasks(applyEmployeeTaskFilter(tasks));
+  }
+
+  async function loadEmployeeTemplates() {
+    const templates = await callServer('getEmployeeDailyTemplates', currentUser.email);
+    renderEmployeeTemplates(templates);
+  }
+
+  function renderEmployeeTemplates(templates) {
+    $('#employeeTemplates').innerHTML = templates.length ? `
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 text-left text-xs font-black uppercase text-slate-500">Titulo</th>
+              <th class="px-3 py-2 text-left text-xs font-black uppercase text-slate-500">Prioridade</th>
+              <th class="px-3 py-2 text-left text-xs font-black uppercase text-slate-500">Workspace</th>
+              <th class="px-3 py-2 text-right text-xs font-black uppercase text-slate-500">Acoes</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            ${templates.map((template) => `
+              <tr>
+                <td class="px-3 py-2">
+                  <div class="font-black text-slate-900">${escapeHtml(template.titulo)}</div>
+                  <div class="text-xs text-slate-500">${escapeHtml(template.descricao || '')}</div>
+                </td>
+                <td class="px-3 py-2">${priorityBadge(template.prioridade || 'Media')}</td>
+                <td class="px-3 py-2 text-xs font-bold text-slate-500">${escapeHtml(template.workspace || '')}<br>${escapeHtml(template.diasSemanaLabel || '')}</td>
+                <td class="px-3 py-2 text-right">
+                  <button class="deleteEmployeeTemplateBtn rounded-md bg-red-50 px-2 py-1 text-xs font-black text-red-700" data-template-id="${escapeHtml(template.id)}">Excluir</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : '<p class="bg-slate-50 p-3 text-sm font-medium text-slate-500">Nenhuma tarefa diaria configurada.</p>';
+
+    $$('.deleteEmployeeTemplateBtn').forEach((button) => {
+      button.addEventListener('click', () => handleDeleteEmployeeTemplate(button.dataset.templateId));
+    });
+  }
+
+  function prepareEmployeeTasks(tasks) {
+    return tasks
+      .sort((a, b) => {
+        if (a.status === 'Concluida' && b.status === 'Concluida') {
+          return getCompletedSortValue(b) - getCompletedSortValue(a);
+        }
+        const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
+        const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
+        return dueA - dueB;
+      });
+  }
+
+  function getDefaultEmployeeVisibleTasks(tasks) {
+    return tasks.filter((task) => {
+      if (task.status === 'Concluida') return isRecentCompletedTask(task);
+      return getTaskDueKey(task) === 'overdue' || getTaskDueKey(task) === 'today';
+    });
+  }
+
+  function getRecentCompletedTasks(tasks) {
+    return tasks.filter((task) => task.status === 'Concluida' && isRecentCompletedTask(task));
+  }
+
+  function getOpenTasks(tasks) {
+    return tasks.filter((task) => task.status !== 'Concluida');
+  }
+
+  function getTasksByDueKey(tasks, dueKey) {
+    return tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === dueKey);
+  }
+
+  function getPendingTasks(tasks) {
+    return tasks.filter((task) => task.status === 'Pendente');
+  }
+
+  function getDoingTasks(tasks) {
+    return tasks.filter((task) => task.status === 'Em Andamento');
+  }
+
+  function getDoneTasks(tasks) {
+    return tasks.filter((task) => task.status === 'Concluida');
+  }
+
+  function sortEmployeeTasks(tasks) {
+    return [...tasks].sort((a, b) => {
+      if (a.status === 'Concluida' && b.status === 'Concluida') {
+        return getCompletedSortValue(b) - getCompletedSortValue(a);
+      }
+      const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
+      const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
+      if (dueA !== dueB) return dueA - dueB;
+      return String(a.titulo || '').localeCompare(String(b.titulo || ''));
+    });
+  }
+
+  function isRecentCompletedTask(task) {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    const key = task.dataConclusaoKey || task.dataPrazo;
+
+    return key === toDateKey(today) || key === toDateKey(yesterday);
+  }
+
+  function getCompletedSortValue(task) {
+    if (task.dataConclusaoSort) return Number(task.dataConclusaoSort);
+    if (task.dataPrazo) return new Date(task.dataPrazo + 'T12:00:00').getTime();
+    return 0;
+  }
+
+  function toDateKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function renderEmployeeSummary(tasks) {
+    $('#employeeGreeting').textContent = `Ola, ${currentUser.nome}`;
+
+    const pending = tasks.filter((task) => task.status === 'Pendente').length;
+    const doing = tasks.filter((task) => task.status === 'Em Andamento').length;
+    const done = tasks.filter((task) => task.status === 'Concluida').length;
+    const overdue = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length;
+    const totalOpen = tasks.filter((task) => task.status !== 'Concluida').length;
+
+    $('#employeeSummary').innerHTML = `
+      <div class="employee-summary-card bg-gradient-to-br from-orange-500 to-amber-500">
+        <p class="text-xs font-bold uppercase text-orange-50">Para iniciar</p>
+        <p class="mt-1 text-3xl font-black">${pending}</p>
+        <p class="text-xs text-orange-50">tarefas pendentes</p>
+      </div>
+      <div class="employee-summary-card bg-gradient-to-br from-sky-500 to-blue-600">
+        <p class="text-xs font-bold uppercase text-sky-50">Vencidas</p>
+        <p class="mt-1 text-3xl font-black">${overdue}</p>
+        <p class="text-xs text-sky-50">precisam de atencao</p>
+      </div>
+      <div class="employee-summary-card bg-gradient-to-br from-rose-500 to-red-600">
+        <p class="text-xs font-bold uppercase text-rose-50">Abertas</p>
+        <p class="mt-1 text-3xl font-black">${totalOpen}</p>
+        <p class="text-xs text-rose-50">pendentes e andamento</p>
+      </div>
+      <div class="employee-summary-card bg-gradient-to-br from-emerald-500 to-teal-600">
+        <p class="text-xs font-bold uppercase text-emerald-50">Andamento / feitas</p>
+        <p class="mt-1 text-3xl font-black">${doing}/${done}</p>
+        <p class="text-xs text-emerald-50">em curso e recentes</p>
+      </div>
+    `;
+  }
+
+  function renderEmployeeTaskFilters(tasks) {
+    const counts = {
+      today: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'today').length,
+      overdue: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length,
+      next: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length,
+      pending: tasks.filter((task) => task.status === 'Pendente').length,
+      doing: tasks.filter((task) => task.status === 'Em Andamento').length,
+      open: tasks.filter((task) => task.status !== 'Concluida').length,
+      done: tasks.filter((task) => task.status === 'Concluida').length,
+      all: tasks.length,
+    };
+
+    const filters = [
+      ['today', 'Hoje'],
+      ['overdue', 'Vencidas'],
+      ['next', 'Proximas'],
+      ['pending', 'Pendentes'],
+      ['doing', 'Em andamento'],
+      ['open', 'Abertas'],
+      ['done', 'Concluidas'],
+      ['all', 'Todas'],
+    ];
+
+    $('#employeeTaskFilters').innerHTML = filters.map(([key, label]) => `
+      <button class="employeeFilterBtn rounded-md border px-3 py-2 text-xs font-black ${employeeTaskFilter === key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700'}" data-filter="${key}">
+        ${label} <span class="ml-1 opacity-70">${counts[key]}</span>
+      </button>
+    `).join('');
+
+    $$('.employeeFilterBtn').forEach((button) => {
+      button.addEventListener('click', () => {
+        employeeTaskFilter = button.dataset.filter;
+        renderEmployeeTaskFilters(tasks);
+        renderEmployeeTasks(applyEmployeeTaskFilter(tasks));
+      });
+    });
+  }
+
+  function applyEmployeeTaskFilter(tasks) {
+    if (employeeTaskFilter === 'all') return sortEmployeeTasks(tasks);
+    if (employeeTaskFilter === 'done') return sortEmployeeTasks(getDoneTasks(tasks));
+    if (employeeTaskFilter === 'pending') return sortEmployeeTasks(getPendingTasks(tasks));
+    if (employeeTaskFilter === 'doing') return sortEmployeeTasks(getDoingTasks(tasks));
+    if (employeeTaskFilter === 'open') return sortEmployeeTasks(getOpenTasks(tasks));
+    if (employeeTaskFilter === 'overdue') return sortEmployeeTasks(getTasksByDueKey(tasks, 'overdue'));
+    if (employeeTaskFilter === 'next') return sortEmployeeTasks(getTasksByDueKey(tasks, 'next'));
+    if (employeeTaskFilter === 'today') return sortEmployeeTasks(getTasksByDueKey(tasks, 'today'));
+    return sortEmployeeTasks(getDefaultEmployeeVisibleTasks(tasks));
+  }
+
+  function renderEmployeeTasks(tasks) {
+    const doneTitle = employeeTaskFilter === 'done' || employeeTaskFilter === 'all'
+      ? 'Concluidas'
+      : 'Concluidas recentes';
+    const groups = [
+      { key: 'overdue', title: 'Atrasadas', icon: '!', className: 'employee-column-pendente' },
+      { key: 'today', title: 'Hoje', icon: 'H', className: 'employee-column-andamento' },
+      { key: 'next', title: 'Proximas', icon: '>', className: 'employee-column-pendente' },
+      { key: 'done', title: doneTitle, icon: 'OK', className: 'employee-column-concluida' },
+    ];
+    $('#employeeTasks').innerHTML = groups.map((status) => {
+      const groupTasks = getTasksForDueColumn(tasks, status.key);
+      return `
+        <section class="employee-column ${status.className}">
+          <div class="flex items-center justify-between">
+            <h2 class="flex items-center gap-2 text-base font-black">
+              <span class="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs shadow-sm">${status.icon}</span>
+              ${status.title}
+            </h2>
+            <span class="rounded-full bg-white px-2.5 py-1 text-xs font-black shadow-sm">${groupTasks.length}</span>
+          </div>
+          <div class="mt-2 space-y-1.5">
+            ${groupTasks.map(renderEmployeeTaskCard).join('') || '<p class="rounded-md bg-white/70 p-2 text-xs font-medium text-slate-500">Nenhuma tarefa aqui.</p>'}
+          </div>
+        </section>
+      `;
+    }).join('');
+
+    $$('.taskDetailsBtn').forEach((button) => {
+      button.addEventListener('click', () => openTaskDetails(tasks.find((task) => task.id === button.dataset.taskId)));
+    });
+    $$('.statusBtn').forEach((button) => {
+      button.addEventListener('click', () => changeStatus(button.dataset.taskId, button.dataset.status));
+    });
+  }
+
+  function renderEmployeeTaskCard(task) {
+    return `
+      <article class="employee-task-card">
+        <div class="min-w-0">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <button class="taskDetailsBtn text-left text-sm font-black leading-tight text-slate-900 hover:text-sky-700" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.titulo)}</button>
+            ${priorityBadge(task.prioridade)}
+            ${statusBadge(task.status)}
+          </div>
+          <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-semibold text-slate-500">
+            <span>${escapeHtml(task.dataPrazo || 'Sem prazo')}</span>
+            <span class="text-slate-300">|</span>
+            <span>${escapeHtml(task.workspace || '')}</span>
+            <span class="font-normal text-slate-400">${escapeHtml(task.descricao || '')}</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap justify-start gap-1.5">
+          ${renderEmployeeActionButtons(task)}
+          <button class="taskDetailsBtn employee-action-btn border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderEmployeeActionButtons(task) {
+    if (task.status === 'Pendente') {
+      return `
+        <button class="statusBtn employee-action-btn border border-sky-400 bg-sky-50 text-sky-800" data-task-id="${escapeHtml(task.id)}" data-status="Em Andamento">Comecar</button>
+        <button class="statusBtn employee-action-btn bg-emerald-600 text-white" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
+      `;
+    }
+
+    if (task.status === 'Em Andamento') {
+      return `
+        <button class="statusBtn employee-action-btn bg-emerald-600 text-white" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
+      `;
+    }
+
+    return `
+      <button class="statusBtn employee-action-btn border border-amber-500 bg-amber-50 text-amber-800" data-task-id="${escapeHtml(task.id)}" data-status="Pendente">Refazer</button>
+    `;
+  }
+
+  function getTasksForDueColumn(tasks, columnKey) {
+    return tasks
+      .filter((task) => {
+        if (columnKey === 'done') return task.status === 'Concluida';
+        if (task.status === 'Concluida') return false;
+
+        const dueKey = getTaskDueKey(task);
+        return dueKey === columnKey;
+      })
+      .sort((a, b) => {
+        if (columnKey === 'done') return getCompletedSortValue(b) - getCompletedSortValue(a);
+        return getStatusWeight(a.status) - getStatusWeight(b.status);
+      });
+  }
+
+  function getTaskDueKey(task) {
+    if (!task.dataPrazo) return 'next';
+
+    const todayKey = toDateKey(new Date());
+    if (task.dataPrazo < todayKey) return 'overdue';
+    if (task.dataPrazo === todayKey) return 'today';
+    return 'next';
+  }
+
+  function getStatusWeight(status) {
+    if (status === 'Em Andamento') return 0;
+    if (status === 'Pendente') return 1;
+    return 2;
+  }
+
+  async function changeStatus(taskId, status) {
+    await callServer('updateTaskStatus', taskId, status, currentUser.email);
+    showToast('Status atualizado.');
+    await loadEmployee(false);
+  }
+
+  async function openTaskDetails(task) {
+    selectedTask = task;
+    $('#detailsTitle').textContent = task.titulo;
+    $('#detailsDescription').textContent = task.descricao || 'Sem descricao.';
+    openModal('detailsModal');
+    await Promise.all([
+      loadComments(task.id),
+      loadChecklist(task.id),
+      loadHistory(task.id),
+    ]);
+  }
+
+  async function loadComments(taskId) {
+    const comments = await callServer('getTaskComments', taskId);
+    $('#commentsList').innerHTML = comments.map((comment) => `
+      <div class="rounded-md bg-white p-2 ring-1 ring-slate-200">
+        <p class="text-xs text-slate-400">${escapeHtml(comment.autorEmail)} - ${escapeHtml(comment.dataHora)}</p>
+        <p class="mt-1 text-sm">${escapeHtml(comment.mensagem)}</p>
+      </div>
+    `).join('') || '<p class="text-sm text-slate-400">Sem comentarios.</p>';
+  }
+
+  async function handleAddComment(event) {
+    event.preventDefault();
+    const form = event.target;
+    await callServer('addComment', selectedTask.id, form.mensagem.value, currentUser.email);
+    form.reset();
+    await Promise.all([loadComments(selectedTask.id), loadHistory(selectedTask.id)]);
+  }
+
+  async function loadChecklist(taskId) {
+    const checklist = await callServer('getTaskChecklist', taskId);
+    $('#checklistList').innerHTML = checklist.map((item) => `
+      <div class="flex items-center gap-2 rounded-md bg-white p-2 ring-1 ring-slate-200">
+        <input class="checklistToggle h-4 w-4" type="checkbox" data-item-id="${escapeHtml(item.id)}" ${item.concluido ? 'checked' : ''}>
+        <span class="flex-1 text-sm ${item.concluido ? 'text-slate-400 line-through' : 'text-slate-700'}">${escapeHtml(item.titulo)}</span>
+        <button class="deleteChecklistBtn rounded-md bg-red-50 px-2 py-1 text-xs font-black text-red-700" data-item-id="${escapeHtml(item.id)}">Excluir</button>
+      </div>
+    `).join('') || '<p class="text-sm text-slate-400">Sem checklist.</p>';
+
+    $$('.checklistToggle').forEach((input) => {
+      input.addEventListener('change', async () => {
+        await callServer('updateChecklistItem', input.dataset.itemId, input.checked, currentUser.email);
+        await Promise.all([loadChecklist(taskId), loadHistory(taskId)]);
+      });
+    });
+    $$('.deleteChecklistBtn').forEach((button) => {
+      button.addEventListener('click', async () => {
+        await callServer('deleteChecklistItem', button.dataset.itemId, currentUser.email);
+        await Promise.all([loadChecklist(taskId), loadHistory(taskId)]);
+      });
+    });
+  }
+
+  async function loadHistory(taskId) {
+    const history = await callServer('getTaskHistory', taskId);
+    $('#historyList').innerHTML = history.map((item) => `
+      <div class="rounded-md bg-white p-2 ring-1 ring-slate-200">
+        <p class="text-xs font-bold text-slate-500">${escapeHtml(item.dataHora)} | ${escapeHtml(item.autorEmail)}</p>
+        <p class="mt-1 text-sm font-black">${escapeHtml(item.acao)}</p>
+        <p class="text-xs text-slate-500">${escapeHtml(item.detalhes || '')}</p>
+      </div>
+    `).join('') || '<p class="text-sm text-slate-400">Sem historico.</p>';
+  }
+
+  async function handleAddChecklistItem(event) {
+    event.preventDefault();
+    const form = event.target;
+    await callServer('addChecklistItem', selectedTask.id, form.titulo.value, currentUser.email);
+    form.reset();
+    await Promise.all([loadChecklist(selectedTask.id), loadHistory(selectedTask.id)]);
+  }
+
+  async function handleCreateTemplate(event) {
+    event.preventDefault();
+    await callServer('createDailyTemplate', formToObject(event.target));
+    event.target.reset();
+    closeModals();
+    showToast('Modelo diario criado.');
+  }
+
+  async function handleCreateEmployeeTemplate(event) {
+    event.preventDefault();
+    await callServer('createEmployeeDailyTemplate', formToObject(event.target), currentUser.email);
+    event.target.reset();
+    closeModals();
+    showToast('Tarefa diaria criada.');
+    await loadEmployeeTemplates();
+    await loadEmployee(false);
+  }
+
+  async function handleCreateEmployeeTask(event) {
+    event.preventDefault();
+    await callServer('createEmployeeTask', formToObject(event.target), currentUser.email);
+    event.target.reset();
+    closeModals();
+    showToast('Tarefa criada.');
+    employeeTaskFilter = 'pending';
+    await loadEmployee(false);
+  }
+
+  async function handleDeleteEmployeeTemplate(templateId) {
+    const ok = confirm('Deseja excluir esta tarefa diaria? As tarefas ja criadas nao serao apagadas.');
+    if (!ok) return;
+
+    await callServer('deleteEmployeeDailyTemplate', templateId, currentUser.email);
+    showToast('Tarefa diaria excluida.');
+    await loadEmployeeTemplates();
+  }
+
+  async function handleRegisterUser(event) {
+    event.preventDefault();
+    await callServer('registerUser', formToObject(event.target));
+    event.target.reset();
+    closeModals();
+    showToast('Usuario cadastrado.');
+    await loadAdmin();
+  }
+
+  async function handleCreateWorkspace(event) {
+    event.preventDefault();
+    await callServer('createWorkspace', formToObject(event.target));
+    event.target.reset();
+    closeModals();
+    showToast('Workspace cadastrado.');
+    await loadAdmin();
+  }
+
+  function formToObject(form) {
+    const data = {};
+    const formData = new FormData(form);
+    for (const [key, value] of formData.entries()) {
+      data[key] = data[key] ? `${data[key]},${value}` : value;
+    }
+    return data;
+  }
+
+  function openModal(id) {
+    $('#' + id).classList.remove('hidden');
+  }
+
+  function closeModals() {
+    $$('.modal').forEach((modal) => modal.classList.add('hidden'));
+  }
+
+  function showToast(message) {
+    const toast = $('#toast');
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 2500);
+  }
+
+  function maybeShowNotificationPrompt() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      localStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
+      return;
+    }
+
+    if (sessionStorage.getItem(NOTIFICATION_PROMPT_KEY) === 'true') return;
+
+    openModal('notificationPromptModal');
+  }
+
+  async function prepareNotifications(askPermission = false) {
+    unlockNotificationSound();
+
+    if (askPermission && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          showTaskAlert('Aviso dentro da dashboard ativo', 'O navegador nao liberou notificacoes externas, mas o alerta na tela e o som continuam funcionando com a pagina aberta.');
+        }
+        return permission;
+      } catch (error) {
+        console.log('Permissao de notificacao nao concedida.', error);
+      }
+    }
+
+    if (askPermission && 'Notification' in window && Notification.permission === 'denied') {
+      showTaskAlert('Notificacoes bloqueadas no Chrome', 'Clique no cadeado da barra de endereco, libere notificacoes para este site e recarregue a dashboard.');
+    }
+
+    return 'Notification' in window ? Notification.permission : 'unsupported';
+  }
+
+  function startEmployeePolling() {
+    stopEmployeePolling();
+    employeePollTimer = setInterval(async () => {
+      if (!currentUser || currentUser.perfil !== 'Colaborador') return;
+      try {
+        await loadEmployee(false);
+      } catch (error) {
+        console.log('Falha ao buscar novas tarefas.', error);
+      }
+    }, 5000);
+  }
+
+  function stopEmployeePolling() {
+    if (employeePollTimer) {
+      clearInterval(employeePollTimer);
+      employeePollTimer = null;
+    }
+    knownEmployeeTaskIds = new Set();
+  }
+
+  function notifyNewEmployeeTasks(tasks, isInitialLoad) {
+    const incomingIds = new Set(tasks.map((task) => task.id));
+
+    if (isInitialLoad || knownEmployeeTaskIds.size === 0) {
+      knownEmployeeTaskIds = incomingIds;
+      return;
+    }
+
+    const newTasks = tasks.filter((task) => !knownEmployeeTaskIds.has(task.id));
+    knownEmployeeTaskIds = incomingIds;
+
+    newTasks.forEach((task) => {
+      startTitleAlert();
+      showTaskAlert('Nova tarefa recebida', task.titulo);
+      playNotificationSound();
+      showBrowserNotification(task);
+    });
+  }
+
+  function startTitleAlert() {
+    unreadTaskNotifications += 1;
+    setBrowserAttentionTitle();
+    setFaviconBadge(unreadTaskNotifications);
+    if (titleAlertTimer) return;
+
+    let visible = false;
+    titleAlertTimer = setInterval(() => {
+      visible = !visible;
+      setDocumentTitle(visible ? `(${unreadTaskNotifications}) Nova tarefa!` : originalPageTitle);
+    }, 1000);
+  }
+
+  function clearTitleAlert() {
+    unreadTaskNotifications = 0;
+    if (titleAlertTimer) {
+      clearInterval(titleAlertTimer);
+      titleAlertTimer = null;
+    }
+    setDocumentTitle(originalPageTitle);
+    clearFaviconBadge();
+  }
+
+  function setBrowserAttentionTitle() {
+    setDocumentTitle(`(${unreadTaskNotifications}) Nova tarefa!`);
+  }
+
+  function setDocumentTitle(title) {
+    document.title = title;
+
+    try {
+      if (window.parent && window.parent !== window) window.parent.document.title = title;
+    } catch (error) {}
+
+    try {
+      if (window.top && window.top !== window) window.top.document.title = title;
+    } catch (error) {}
+  }
+
+  function setFaviconBadge(count) {
+    const favicon = getFaviconElement();
+    if (!originalFaviconHref) originalFaviconHref = favicon.href || '';
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = '#ef4444';
+    ctx.beginPath();
+    ctx.arc(44, 20, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.min(count, 9)), 44, 20);
+
+    favicon.href = canvas.toDataURL('image/png');
+  }
+
+  function clearFaviconBadge() {
+    const favicon = getFaviconElement();
+    if (originalFaviconHref) {
+      favicon.href = originalFaviconHref;
+    }
+  }
+
+  function getFaviconElement() {
+    let favicon = document.querySelector('link[rel="icon"]');
+    if (!favicon) {
+      favicon = document.createElement('link');
+      favicon.rel = 'icon';
+      document.head.appendChild(favicon);
+    }
+    return favicon;
+  }
+
+  function showTaskAlert(title, message) {
+    let alert = $('#taskAlert');
+    if (!alert) {
+      alert = document.createElement('div');
+      alert.id = 'taskAlert';
+      alert.className = 'fixed right-4 top-4 z-[60] hidden max-w-sm rounded-xl border border-cyan-200 bg-white p-4 shadow-2xl';
+      document.body.appendChild(alert);
+    }
+
+    alert.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-sm font-black text-white">!</div>
+        <div>
+          <p class="font-black text-slate-900">${escapeHtml(title)}</p>
+          <p class="mt-1 text-sm text-slate-600">${escapeHtml(message)}</p>
+        </div>
+      </div>
+    `;
+    alert.classList.remove('hidden');
+    setTimeout(() => alert.classList.add('hidden'), 7000);
+  }
+
+  function showBrowserNotification(task) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    new Notification('Nova tarefa recebida', {
+      body: `${task.titulo} - Prazo: ${task.dataPrazo || 'sem prazo'}`,
+      tag: task.id,
+    });
+  }
+
+  function unlockNotificationSound() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    if (!audioContext) audioContext = new AudioContext();
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
+  }
+
+  function playNotificationSound() {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    if (!audioContext) audioContext = new AudioContext();
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
+
+    const now = audioContext.currentTime;
+    playTone(now, 740, 0.2, 0.45);
+    playTone(now + 0.22, 988, 0.22, 0.55);
+    playTone(now + 0.48, 1319, 0.28, 0.5);
+  }
+
+  function playTone(startTime, frequency, duration, volume) {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    gain.gain.setValueAtTime(0.0001, startTime);
+    gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(startTime);
+    oscillator.stop(startTime + duration + 0.02);
+  }
+
+  function priorityBadge(priority) {
+    const classes = {
+      Baixa: 'bg-slate-100 text-slate-700',
+      Media: 'bg-blue-50 text-blue-700',
+      Alta: 'bg-amber-50 text-amber-700',
+      Urgente: 'bg-red-50 text-red-700',
+    };
+    return `<span class="badge ${classes[priority] || classes.Media}">${escapeHtml(priority || 'Media')}</span>`;
+  }
+
+  function statusBadge(status) {
+    const classes = {
+      Pendente: 'bg-slate-100 text-slate-700',
+      'Em Andamento': 'bg-blue-50 text-blue-700',
+      Concluida: 'bg-emerald-50 text-emerald-700',
+    };
+    return `<span class="badge ${classes[status] || classes.Pendente}">${escapeHtml(status || 'Pendente')}</span>`;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
