@@ -6,10 +6,12 @@ let currentUser = null;
   let chatPollTimer = null;
   let knownChatMessageIds = new Set();
   let unreadChatMessages = 0;
+  let unreadChatByContact = {};
   let chatBootstrapComplete = false;
   let titleAlertLabel = 'Nova tarefa!';
   let employeePollTimer = null;
   let employeeTaskFilter = 'pending';
+  let employeePendingFilter = 'today';
   let currentEmployeeTasks = [];
   let knownEmployeeTaskIds = new Set();
   let audioContext = null;
@@ -38,13 +40,14 @@ let currentUser = null;
     $('#employeeTemplateForm').addEventListener('submit', handleCreateEmployeeTemplate);
     $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
     $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
+    $('#employeeSummary').addEventListener('click', handleEmployeeFilterClick);
     $('#chatForm').addEventListener('submit', handleSendChatMessage);
     $('#openAdminChatsBtn').addEventListener('click', openAdminChatHub);
     $('#openEmployeeTemplatesBtn').addEventListener('click', async () => {
       await loadEmployeeTemplates();
       openModal('employeeTemplatesListModal');
     });
-    $('#openEmployeeChatBtn').addEventListener('click', () => openChat(currentUser.email));
+    $('#openEmployeeChatBtn').addEventListener('click', openChatHub);
     $('#allowNotificationsBtn').addEventListener('click', async () => {
       const permission = await prepareNotifications(true);
       playNotificationSound();
@@ -327,7 +330,7 @@ let currentUser = null;
         <td class="px-4 py-3">${escapeHtml(user.perfil)}</td>
         <td class="px-4 py-3">${escapeHtml(user.workspace || '')}</td>
         <td class="px-4 py-3">
-          ${user.perfil === 'Colaborador' ? `<button class="openChatBtn row-btn relative" data-email="${escapeHtml(user.email)}" data-name="${escapeHtml(user.nome)}">Chat<span class="chat-badge adminChatBadge hidden" data-email="${escapeHtml(user.email)}">0</span></button>` : '<span class="text-xs text-slate-400">-</span>'}
+          ${normalizeEmailClient(user.email) !== normalizeEmailClient(currentUser.email) ? `<button class="openChatBtn row-btn relative" data-email="${escapeHtml(user.email)}" data-name="${escapeHtml(user.nome)}">Chat<span class="chat-badge adminChatBadge hidden" data-email="${escapeHtml(user.email)}">0</span></button>` : '<span class="text-xs text-slate-400">Voce</span>'}
         </td>
         <td class="px-4 py-3">
           <div class="flex justify-end">
@@ -437,7 +440,6 @@ let currentUser = null;
     currentEmployeeTasks = tasks;
     notifyNewEmployeeTasks(tasks, isInitialLoad);
     renderEmployeeSummary(tasks);
-    renderEmployeeTaskFilters(tasks);
     renderEmployeeTasks(applyEmployeeTaskFilter(tasks));
   }
 
@@ -534,11 +536,11 @@ let currentUser = null;
     });
   }
 
-  function sortRecentFirst(tasks) {
+  function sortOldestFirst(tasks) {
     return [...tasks].sort((a, b) => {
       const createdA = Number(a.dataCriacaoSort || 0);
       const createdB = Number(b.dataCriacaoSort || 0);
-      if (createdA !== createdB) return createdB - createdA;
+      if (createdA !== createdB) return createdA - createdB;
       const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
       const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
       if (dueA !== dueB) return dueA - dueB;
@@ -573,30 +575,24 @@ let currentUser = null;
 
     const pending = getPendingTasks(tasks).length;
     const doing = getDoingTasks(tasks).length;
-    const overdue = tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length;
-    const next = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length;
+    const done = getDoneTasks(tasks).length;
 
     $('#employeeSummary').innerHTML = `
-      <div class="employee-summary-card summary-today">
+      <button type="button" class="employee-summary-card summary-today ${employeeTaskFilter === 'pending' ? 'is-active' : ''}" data-filter="pending">
         <p>Pendentes</p>
         <strong>${pending}</strong>
         <span>aguardando execucao</span>
-      </div>
-      <div class="employee-summary-card summary-next">
+      </button>
+      <button type="button" class="employee-summary-card summary-next ${employeeTaskFilter === 'doing' ? 'is-active' : ''}" data-filter="doing">
         <p>Em andamento</p>
         <strong>${doing}</strong>
         <span>tarefas iniciadas</span>
-      </div>
-      <div class="employee-summary-card summary-overdue ${overdue ? 'is-danger' : ''}">
-        <p>Atrasadas</p>
-        <strong>${overdue}</strong>
-        <span>pendentes vencidas</span>
-      </div>
-      <div class="employee-summary-card summary-daily">
-        <p>Proximas</p>
-        <strong>${next}</strong>
-        <span>agendadas para depois</span>
-      </div>
+      </button>
+      <button type="button" class="employee-summary-card summary-daily ${employeeTaskFilter === 'done' ? 'is-active' : ''}" data-filter="done">
+        <p>Concluidas</p>
+        <strong>${done}</strong>
+        <span>finalizadas</span>
+      </button>
     `;
   }
 
@@ -604,16 +600,12 @@ let currentUser = null;
     const counts = {
       pending: getPendingTasks(tasks).length,
       doing: getDoingTasks(tasks).length,
-      overdue: tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length,
-      next: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length,
       done: tasks.filter((task) => task.status === 'Concluida').length,
     };
 
     const filters = [
       ['pending', 'Pendentes'],
       ['doing', 'Em andamento'],
-      ['overdue', 'Atrasadas'],
-      ['next', 'Proximas'],
       ['done', 'Concluidas'],
     ];
 
@@ -631,25 +623,36 @@ let currentUser = null;
     if (!button) return;
 
     employeeTaskFilter = button.dataset.filter || 'pending';
+    if (employeeTaskFilter === 'pending' && !employeePendingFilter) employeePendingFilter = 'today';
+    renderEmployeeSummary(currentEmployeeTasks);
     renderEmployeeTaskFilters(currentEmployeeTasks);
     renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
   }
 
   function applyEmployeeTaskFilter(tasks) {
-    if (employeeTaskFilter === 'done') return sortEmployeeTasks(getDoneTasks(tasks));
-    if (employeeTaskFilter === 'doing') return sortEmployeeTasks(getDoingTasks(tasks));
-    if (employeeTaskFilter === 'pending') return sortRecentFirst(getPendingTasks(tasks));
-    if (employeeTaskFilter === 'overdue') return sortEmployeeTasks(tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue'));
-    if (employeeTaskFilter === 'next') return sortEmployeeTasks(getTasksByDueKey(tasks, 'next'));
+    if (employeeTaskFilter === 'done') return sortOldestFirst(getDoneTasks(tasks));
+    if (employeeTaskFilter === 'doing') return sortOldestFirst(getDoingTasks(tasks));
+    if (employeeTaskFilter === 'pending') return sortOldestFirst(getPendingTasksByPendingFilter(tasks));
     return sortEmployeeTasks(getDefaultEmployeeVisibleTasks(tasks));
+  }
+
+  function getTasksByPendingFilter(tasks, filterKey) {
+    return getPendingTasks(tasks).filter((task) => {
+      const dueKey = getTaskDueKey(task);
+      if (filterKey === 'overdue') return dueKey === 'overdue';
+      if (filterKey === 'next') return dueKey === 'next';
+      return dueKey === 'today';
+    });
+  }
+
+  function getPendingTasksByPendingFilter(tasks) {
+    return getTasksByPendingFilter(tasks, employeePendingFilter || 'today');
   }
 
   function renderEmployeeTasks(tasks) {
     const titles = {
       pending: 'Tarefas pendentes',
       doing: 'Tarefas em andamento',
-      overdue: 'Tarefas atrasadas',
-      next: 'Proximas tarefas',
       done: 'Tarefas concluidas',
     };
 
@@ -662,6 +665,7 @@ let currentUser = null;
           </div>
           <button id="employeeTemplatesShortcut" class="employee-secondary-action">Tarefas diarias</button>
         </div>
+        ${employeeTaskFilter === 'pending' ? renderPendingSubfilters() : ''}
         <div class="employee-list-table">
           ${tasks.map(renderEmployeeTaskCard).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm font-medium text-slate-500">Nenhuma tarefa nesta visualizacao.</p>'}
         </div>
@@ -679,6 +683,35 @@ let currentUser = null;
     $$('.statusBtn').forEach((button) => {
       button.addEventListener('click', () => changeStatus(button.dataset.taskId, button.dataset.status));
     });
+    $$('.pending-subfilter-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        employeePendingFilter = button.dataset.pendingFilter || 'today';
+        renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
+      });
+    });
+  }
+
+  function renderPendingSubfilters() {
+    const counts = {
+      today: getTasksByPendingFilter(currentEmployeeTasks, 'today').length,
+      overdue: getTasksByPendingFilter(currentEmployeeTasks, 'overdue').length,
+      next: getTasksByPendingFilter(currentEmployeeTasks, 'next').length,
+    };
+    const filters = [
+      ['today', 'Hoje'],
+      ['overdue', 'Atrasadas'],
+      ['next', 'Proximas'],
+    ];
+    return `
+      <div class="pending-subfilters">
+        ${filters.map(([key, label]) => `
+          <button class="pending-subfilter-btn ${employeePendingFilter === key ? 'is-active' : ''}" data-pending-filter="${key}">
+            <span>${label}</span>
+            <strong>${counts[key]}</strong>
+          </button>
+        `).join('')}
+      </div>
+    `;
   }
 
   function renderEmployeeTaskCard(task) {
@@ -875,6 +908,7 @@ let currentUser = null;
     closeModals();
     showToast('Tarefa criada.');
     employeeTaskFilter = 'pending';
+    employeePendingFilter = 'today';
     await loadEmployee(false);
   }
 
@@ -911,35 +945,38 @@ let currentUser = null;
     await loadAdmin();
   }
 
-  async function openChat(collaboratorEmail, collaboratorName = '') {
-    selectedChatCollaboratorEmail = collaboratorEmail;
-    clearChatBadge(collaboratorEmail);
+  async function openChat(contactEmail, contactName = '') {
+    selectedChatCollaboratorEmail = contactEmail;
+    clearChatBadge(contactEmail);
     closeModals();
 
-    $('#chatTitle').textContent = currentUser.perfil === 'Admin'
-      ? `Chat com ${collaboratorName || collaboratorEmail}`
-      : 'Chat com Admin';
+    $('#chatTitle').textContent = `Chat com ${contactName || contactEmail}`;
     $('#chatSubtitle').textContent = 'Mensagens somem automaticamente apos 24h.';
 
     await loadChatMessages(false);
     openModal('chatModal');
   }
 
-  async function openAdminChatHub() {
-    if (!currentUser || currentUser.perfil !== 'Admin') return;
-    const contacts = await callServer('getChatContacts');
-    renderAdminChatHub(contacts);
-    openModal('adminChatHubModal');
+  async function openChatHub() {
+    if (!currentUser) return;
+    const contacts = await callServer('getChatContacts', currentUser.email);
+    renderChatHub(contacts);
+    openModal('chatHubModal');
   }
 
-  function renderAdminChatHub(contacts) {
-    $('#adminChatHubList').innerHTML = contacts.map((contact) => {
-      const unread = getAdminUnreadCount(contact.email);
+  async function openAdminChatHub() {
+    await openChatHub();
+  }
+
+  function renderChatHub(contacts) {
+    $('#chatHubList').innerHTML = contacts.map((contact) => {
+      const unread = getUnreadCount(contact.email);
       return `
         <div class="admin-chat-contact">
           <div class="min-w-0">
             <div class="flex flex-wrap items-center gap-2">
               <p class="font-black text-slate-900">${escapeHtml(contact.nome)}</p>
+              <span class="rounded-full bg-slate-100 px-2 py-1 text-xs font-black text-slate-600">${escapeHtml(contact.perfil || '')}</span>
               ${unread ? `<span class="rounded-full bg-red-50 px-2 py-1 text-xs font-black text-red-700">${unread} nova${unread === 1 ? '' : 's'}</span>` : ''}
             </div>
             <p class="mt-1 text-xs font-medium text-slate-500">${escapeHtml(contact.email)} | ${escapeHtml(contact.workspace || 'Sem workspace')}</p>
@@ -948,32 +985,36 @@ let currentUser = null;
           <button class="openHubChatBtn row-btn" data-email="${escapeHtml(contact.email)}" data-name="${escapeHtml(contact.nome)}">Abrir chat</button>
         </div>
       `;
-    }).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Nenhum colaborador encontrado.</p>';
+    }).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Nenhum contato encontrado.</p>';
 
     $$('.openHubChatBtn').forEach((button) => {
       button.addEventListener('click', () => openChat(button.dataset.email, button.dataset.name));
     });
   }
 
-  function getAdminUnreadCount(collaboratorEmail) {
-    const badge = $$('.adminChatBadge')
-      .find((item) => normalizeEmailClient(item.dataset.email) === normalizeEmailClient(collaboratorEmail));
-    return Number(badge?.textContent || '0');
+  function getUnreadCount(contactEmail) {
+    return Number(unreadChatByContact[normalizeEmailClient(contactEmail)] || 0);
   }
 
   function updateAdminGlobalChatBadge() {
-    const badge = $('#adminChatGlobalBadge');
-    if (!badge) return;
-    const total = $$('.adminChatBadge').reduce((sum, item) => sum + Number(item.textContent || '0'), 0);
-    badge.textContent = total;
-    badge.classList.toggle('hidden', total <= 0);
+    const total = Object.values(unreadChatByContact).reduce((sum, value) => sum + Number(value || 0), 0);
+    const adminBadge = $('#adminChatGlobalBadge');
+    if (adminBadge) {
+      adminBadge.textContent = total;
+      adminBadge.classList.toggle('hidden', total <= 0);
+    }
+    const employeeBadge = $('#employeeChatBadge');
+    if (employeeBadge) {
+      employeeBadge.textContent = total;
+      employeeBadge.classList.toggle('hidden', total <= 0);
+    }
   }
 
   async function loadChatMessages(shouldNotify = true) {
-    const collaboratorEmail = selectedChatCollaboratorEmail || (currentUser?.perfil === 'Colaborador' ? currentUser.email : '');
-    if (!currentUser || !collaboratorEmail) return;
+    const contactEmail = selectedChatCollaboratorEmail;
+    if (!currentUser || !contactEmail) return;
 
-    const messages = await callServer('getChatMessages', collaboratorEmail);
+    const messages = await callServer('getChatMessages', contactEmail, currentUser.email);
     renderChatMessages(messages);
     notifyNewChatMessages(messages, shouldNotify);
   }
@@ -1016,12 +1057,7 @@ let currentUser = null;
       chatPollTimer = setInterval(async () => {
         if (!currentUser) return;
         try {
-          if (currentUser.perfil === 'Admin') {
-            await pollAdminChats();
-          } else {
-            if (!selectedChatCollaboratorEmail) selectedChatCollaboratorEmail = currentUser.email;
-            await pollEmployeeChat();
-          }
+          await pollChats();
         } catch (error) {
           console.log('Falha ao atualizar chat.', error);
         }
@@ -1032,21 +1068,14 @@ let currentUser = null;
   async function bootstrapChatMessages() {
     if (!currentUser) return;
     knownChatMessageIds = new Set();
-    if (currentUser.perfil === 'Admin') {
-      const contacts = await callServer('getChatContacts');
-      for (const contact of contacts) {
-        const messages = await callServer('getChatMessages', contact.email);
-        messages
-          .filter((message) => normalizeEmailClient(message.autorEmail) !== normalizeEmailClient(currentUser.email))
-          .forEach((message) => knownChatMessageIds.add(message.id));
-      }
-      return;
+    unreadChatByContact = {};
+    const contacts = await callServer('getChatContacts', currentUser.email);
+    for (const contact of contacts) {
+      const messages = await callServer('getChatMessages', contact.email, currentUser.email);
+      messages
+        .filter((message) => normalizeEmailClient(message.autorEmail) !== normalizeEmailClient(currentUser.email))
+        .forEach((message) => knownChatMessageIds.add(message.id));
     }
-
-    const messages = await callServer('getChatMessages', currentUser.email);
-    messages
-      .filter((message) => normalizeEmailClient(message.autorEmail) !== normalizeEmailClient(currentUser.email))
-      .forEach((message) => knownChatMessageIds.add(message.id));
   }
 
   function stopChatPolling() {
@@ -1055,26 +1084,20 @@ let currentUser = null;
       chatPollTimer = null;
     }
     unreadChatMessages = 0;
+    unreadChatByContact = {};
     knownChatMessageIds = new Set();
     chatBootstrapComplete = false;
   }
 
-  async function pollEmployeeChat() {
-    const messages = await callServer('getChatMessages', currentUser.email);
-    const isChatOpen = !$('#chatModal').classList.contains('hidden') && selectedChatCollaboratorEmail === currentUser.email;
-    if (isChatOpen) renderChatMessages(messages);
-    notifyNewChatMessages(messages, true);
-  }
-
-  async function pollAdminChats() {
-    const contacts = await callServer('getChatContacts');
+  async function pollChats() {
+    const contacts = await callServer('getChatContacts', currentUser.email);
     for (const contact of contacts) {
-      const messages = await callServer('getChatMessages', contact.email);
+      const messages = await callServer('getChatMessages', contact.email, currentUser.email);
       const isChatOpen = !$('#chatModal').classList.contains('hidden') && selectedChatCollaboratorEmail === contact.email;
       if (isChatOpen) renderChatMessages(messages);
       notifyNewChatMessages(messages, true, contact.email, contact.nome);
     }
-    if (!$('#adminChatHubModal').classList.contains('hidden')) renderAdminChatHub(contacts);
+    if (!$('#chatHubModal').classList.contains('hidden')) renderChatHub(contacts);
   }
 
   function notifyNewChatMessages(messages, shouldNotify, collaboratorEmail = selectedChatCollaboratorEmail, collaboratorName = '') {
@@ -1096,19 +1119,15 @@ let currentUser = null;
 
     const last = newMessages[newMessages.length - 1];
     startTitleAlert('Nova mensagem!');
-    showTaskAlert(currentUser.perfil === 'Admin' ? `Mensagem de ${collaboratorName || collaboratorEmail}` : 'Mensagem do Admin', last.mensagem);
+    showTaskAlert(`Mensagem de ${collaboratorName || collaboratorEmail}`, last.mensagem);
     playNotificationSound();
     showBrowserChatNotification(last, collaboratorName || collaboratorEmail);
   }
 
   function incrementChatBadge(collaboratorEmail, count) {
     unreadChatMessages += count;
-    if (currentUser.perfil === 'Colaborador') {
-      const badge = $('#employeeChatBadge');
-      badge.textContent = unreadChatMessages;
-      badge.classList.remove('hidden');
-      return;
-    }
+    const key = normalizeEmailClient(collaboratorEmail);
+    unreadChatByContact[key] = Number(unreadChatByContact[key] || 0) + count;
 
     $$('.adminChatBadge')
       .filter((badge) => normalizeEmailClient(badge.dataset.email) === normalizeEmailClient(collaboratorEmail))
@@ -1121,11 +1140,9 @@ let currentUser = null;
   }
 
   function clearChatBadge(collaboratorEmail) {
-    if (currentUser?.perfil === 'Colaborador') {
-      unreadChatMessages = 0;
-      $('#employeeChatBadge').classList.add('hidden');
-      return;
-    }
+    const key = normalizeEmailClient(collaboratorEmail);
+    unreadChatMessages = Math.max(0, unreadChatMessages - Number(unreadChatByContact[key] || 0));
+    unreadChatByContact[key] = 0;
 
     $$('.adminChatBadge')
       .filter((badge) => normalizeEmailClient(badge.dataset.email) === normalizeEmailClient(collaboratorEmail))
