@@ -1135,7 +1135,7 @@ let currentUser = null;
     startTitleAlert('Nova mensagem!');
     showTaskAlert(`Mensagem de ${collaboratorName || collaboratorEmail}`, last.mensagem);
     playNotificationSound();
-    showBrowserChatNotification(last, collaboratorName || collaboratorEmail);
+    showBrowserChatNotification(last, collaboratorEmail, collaboratorName || collaboratorEmail);
   }
 
   function incrementChatBadge(collaboratorEmail, count) {
@@ -1167,13 +1167,25 @@ let currentUser = null;
     updateAdminGlobalChatBadge();
   }
 
-  function showBrowserChatNotification(message, senderLabel) {
+  function showBrowserChatNotification(message, contactEmail, senderLabel) {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-    new Notification('Nova mensagem no chat', {
+    const notification = new Notification('Nova mensagem no chat', {
       body: `${senderLabel}: ${message.mensagem}`,
-      tag: message.id,
+      tag: `chat-${normalizeEmailClient(contactEmail)}`,
+      renotify: true,
     });
+
+    notification.onclick = async () => {
+      notification.close();
+      window.focus();
+      if (!currentUser) return;
+      try {
+        await openChat(contactEmail, senderLabel);
+      } catch (error) {
+        showToast(error.message || 'Nao foi possivel abrir o chat.');
+      }
+    };
   }
 
   function formToObject(form) {
