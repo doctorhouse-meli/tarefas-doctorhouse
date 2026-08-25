@@ -234,6 +234,30 @@
     background: rgb(255 247 247);
   }
 
+  .employee-task-title {
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .employee-task-description {
+    margin-top: 0.45rem;
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    border-radius: 0.4rem;
+    background: rgb(248 250 252);
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    color: rgb(71 85 105);
+  }
+
+  #detailsDescription {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   .employee-row-actions {
     display: flex;
     flex-wrap: wrap;

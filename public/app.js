@@ -4,6 +4,7 @@ let currentUser = null;
   let selectedTask = null;
   let employeePollTimer = null;
   let employeeTaskFilter = 'today';
+  let currentEmployeeTasks = [];
   let knownEmployeeTaskIds = new Set();
   let audioContext = null;
   let originalPageTitle = document.title || 'Dashboard de Tarefas';
@@ -30,6 +31,7 @@ let currentUser = null;
     $('#checklistForm').addEventListener('submit', handleAddChecklistItem);
     $('#employeeTemplateForm').addEventListener('submit', handleCreateEmployeeTemplate);
     $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
+    $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
     $('#openEmployeeTemplatesBtn').addEventListener('click', async () => {
       await loadEmployeeTemplates();
       openModal('employeeTemplatesListModal');
@@ -411,6 +413,7 @@ let currentUser = null;
     $('#employeeView').classList.remove('hidden');
     $('#adminView').classList.add('hidden');
     const tasks = prepareEmployeeTasks(await callServer('getEmployeeTasks', currentUser.email));
+    currentEmployeeTasks = tasks;
     notifyNewEmployeeTasks(tasks, isInitialLoad);
     renderEmployeeSummary(tasks);
     renderEmployeeTaskFilters(tasks);
@@ -593,13 +596,15 @@ let currentUser = null;
       </button>
     `).join('');
 
-    $$('.employeeFilterBtn').forEach((button) => {
-      button.addEventListener('click', () => {
-        employeeTaskFilter = button.dataset.filter;
-        renderEmployeeTaskFilters(tasks);
-        renderEmployeeTasks(applyEmployeeTaskFilter(tasks));
-      });
-    });
+  }
+
+  function handleEmployeeFilterClick(event) {
+    const button = event.target.closest('.employee-filter-btn');
+    if (!button) return;
+
+    employeeTaskFilter = button.dataset.filter || 'today';
+    renderEmployeeTaskFilters(currentEmployeeTasks);
+    renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
   }
 
   function applyEmployeeTaskFilter(tasks) {
@@ -656,7 +661,7 @@ let currentUser = null;
       <article class="employee-task-row ${dueKey === 'overdue' && task.status !== 'Concluida' ? 'is-overdue' : ''}">
         <div class="min-w-0">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
-            <button class="taskDetailsBtn text-left text-sm font-black leading-tight text-slate-900 hover:text-sky-700" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.titulo)}</button>
+            <button class="taskDetailsBtn employee-task-title text-left text-sm font-black leading-tight text-slate-900 hover:text-sky-700" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.titulo)}</button>
             ${priorityBadge(task.prioridade)}
             ${statusBadge(task.status)}
           </div>
@@ -666,8 +671,8 @@ let currentUser = null;
             <span>${escapeHtml(task.workspace || '')}</span>
             <span class="text-slate-300">|</span>
             <span>${escapeHtml(task.tipo || 'Manual')}</span>
-            ${task.descricao ? `<span class="font-normal text-slate-400">${escapeHtml(task.descricao)}</span>` : ''}
           </div>
+          ${task.descricao ? `<div class="employee-task-description">${escapeHtml(task.descricao)}</div>` : ''}
         </div>
         <div class="employee-row-actions">
           ${renderEmployeeActionButtons(task)}
