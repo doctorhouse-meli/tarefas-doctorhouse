@@ -87,9 +87,19 @@ export async function initDb() {
       detalhes TEXT DEFAULT ''
     );
 
+    CREATE TABLE IF NOT EXISTS chat_mensagens (
+      id TEXT PRIMARY KEY,
+      colaborador_email TEXT NOT NULL,
+      autor_email TEXT NOT NULL,
+      autor_perfil TEXT NOT NULL,
+      data_hora TIMESTAMPTZ DEFAULT NOW(),
+      mensagem TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_tarefas_atribuido_para ON tarefas(atribuido_para);
     CREATE INDEX IF NOT EXISTS idx_tarefas_prazo ON tarefas(data_prazo);
     CREATE INDEX IF NOT EXISTS idx_templates_diarios_email ON templates_diarios(atribuido_para);
+    CREATE INDEX IF NOT EXISTS idx_chat_colaborador_data ON chat_mensagens(colaborador_email, data_hora);
   `);
 
   await query(`

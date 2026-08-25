@@ -205,6 +205,22 @@ function formatHistoryItem(row) {
   };
 }
 
+function formatChatMessage(row) {
+  return {
+    id: row.id,
+    colaboradorEmail: row.colaborador_email,
+    autorEmail: row.autor_email,
+    autorPerfil: row.autor_perfil,
+    dataHora: toDateTime(row.data_hora),
+    mensagem: row.mensagem,
+    sort: row.data_hora ? new Date(row.data_hora).getTime() : 0,
+  };
+}
+
+async function cleanupOldChatMessages() {
+  await query("DELETE FROM chat_mensagens WHERE data_hora < NOW() - INTERVAL '24 hours'");
+}
+
 async function addHistory(taskId, authorEmail, action, details = '') {
   await query(
     'INSERT INTO historico (id, task_id, autor_email, acao, detalhes) VALUES ($1, $2, $3, $4, $5)',
@@ -641,6 +657,71 @@ export async function getTaskHistory(taskId) {
   return result.rows.map(formatHistoryItem);
 }
 
+export async function getChatContacts() {
+  await cleanupOldChatMessages();
+  const result = await query(`
+    SELECT
+      usuarios.id,
+      usuarios.nome,
+      usuarios.email,
+      usuarios.workspace,
+      MAX(chat_mensagens.data_hora) AS ultima_mensagem
+    FROM usuarios
+    LEFT JOIN chat_mensagens ON chat_mensagens.colaborador_email = usuarios.email
+    WHERE usuarios.perfil = 'Colaborador'
+    GROUP BY usuarios.id, usuarios.nome, usuarios.email, usuarios.workspace
+    ORDER BY MAX(chat_mensagens.data_hora) DESC NULLS LAST, usuarios.nome ASC
+  `);
+  return result.rows.map((row) => ({
+    id: row.id,
+    nome: row.nome,
+    email: row.email,
+    workspace: row.workspace,
+    ultimaMensagem: toDateTime(row.ultima_mensagem),
+  }));
+}
+
+export async function getChatMessages(collaboratorEmail) {
+  await cleanupOldChatMessages();
+  const result = await query(
+    `SELECT *
+     FROM chat_mensagens
+     WHERE colaborador_email = $1
+       AND data_hora >= NOW() - INTERVAL '24 hours'
+     ORDER BY data_hora ASC`,
+    [normalizeEmail(collaboratorEmail)],
+  );
+  return result.rows.map(formatChatMessage);
+}
+
+export async function sendChatMessage(collaboratorEmail, message, senderEmail) {
+  requireFields({ collaboratorEmail, message, senderEmail }, ['collaboratorEmail', 'message', 'senderEmail']);
+  await cleanupOldChatMessages();
+
+  const sender = await getUserByEmail(senderEmail);
+  if (!sender) throw new Error('Usuario remetente nao encontrado.');
+
+  const collaborator = await getUserByEmail(collaboratorEmail);
+  if (!collaborator || collaborator.perfil !== 'Colaborador') {
+    throw new Error('Colaborador nao encontrado.');
+  }
+
+  const result = await query(
+    `INSERT INTO chat_mensagens (id, colaborador_email, autor_email, autor_perfil, mensagem)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING *`,
+    [
+      makeId('MSG'),
+      normalizeEmail(collaboratorEmail),
+      normalizeEmail(senderEmail),
+      sender.perfil,
+      String(message).trim(),
+    ],
+  );
+
+  return formatChatMessage(result.rows[0]);
+}
+
 const rpc = {
   loginUser,
   getAdminDashboardData,
@@ -665,6 +746,9 @@ const rpc = {
   updateChecklistItem,
   deleteChecklistItem,
   getTaskHistory,
+  getChatContacts,
+  getChatMessages,
+  sendChatMessage,
   generateDailyTasks,
 };
 
@@ -678,6 +762,7 @@ const adminOnly = new Set([
   'registerUser',
   'updateUser',
   'createDailyTemplate',
+  'getChatContacts',
   'generateDailyTasks',
 ]);
 
@@ -692,6 +777,7 @@ const emailArgIndex = {
   addChecklistItem: 2,
   updateChecklistItem: 2,
   deleteChecklistItem: 1,
+  getChatMessages: 0,
 };
 
 function authorizeRpc(functionName, args, req) {
@@ -703,6 +789,14 @@ function authorizeRpc(functionName, args, req) {
   const index = emailArgIndex[functionName];
   if (index !== undefined && user.perfil !== 'Admin' && normalizeEmail(args[index]) !== normalizeEmail(user.email)) {
     throw new Error('Voce so pode acessar dados do proprio usuario.');
+  }
+  if (functionName === 'sendChatMessage') {
+    const collaboratorEmail = normalizeEmail(args[0]);
+    const senderEmail = normalizeEmail(args[2]);
+    if (senderEmail !== normalizeEmail(user.email)) throw new Error('Remetente invalido.');
+    if (user.perfil !== 'Admin' && collaboratorEmail !== normalizeEmail(user.email)) {
+      throw new Error('Voce so pode conversar no proprio chat.');
+    }
   }
 }
 

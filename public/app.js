@@ -2,6 +2,12 @@ let currentUser = null;
   let authToken = '';
   let adminData = { tasks: [], usuarios: [], colaboradores: [], workspaces: [], stats: {} };
   let selectedTask = null;
+  let selectedChatCollaboratorEmail = '';
+  let chatPollTimer = null;
+  let knownChatMessageIds = new Set();
+  let unreadChatMessages = 0;
+  let chatBootstrapComplete = false;
+  let titleAlertLabel = 'Nova tarefa!';
   let employeePollTimer = null;
   let employeeTaskFilter = 'today';
   let currentEmployeeTasks = [];
@@ -32,10 +38,12 @@ let currentUser = null;
     $('#employeeTemplateForm').addEventListener('submit', handleCreateEmployeeTemplate);
     $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
     $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
+    $('#chatForm').addEventListener('submit', handleSendChatMessage);
     $('#openEmployeeTemplatesBtn').addEventListener('click', async () => {
       await loadEmployeeTemplates();
       openModal('employeeTemplatesListModal');
     });
+    $('#openEmployeeChatBtn').addEventListener('click', () => openChat(currentUser.email));
     $('#allowNotificationsBtn').addEventListener('click', async () => {
       const permission = await prepareNotifications(true);
       playNotificationSound();
@@ -105,6 +113,7 @@ let currentUser = null;
 
   function logout() {
     stopEmployeePolling();
+    stopChatPolling();
     sessionStorage.removeItem(SESSION_LOGIN_KEY);
     currentUser = null;
     authToken = '';
@@ -164,9 +173,10 @@ let currentUser = null;
       await loadAdmin();
     } else {
       await loadEmployee(true);
-      maybeShowNotificationPrompt();
       startEmployeePolling();
     }
+    maybeShowNotificationPrompt();
+    startChatPolling();
   }
 
   function saveSessionLogin(email, senha) {
@@ -226,8 +236,8 @@ let currentUser = null;
 
   function renderAdminTodayTask(task) {
     return `
-      <div class="rounded-md border border-slate-200 p-2">
-        <p class="text-sm font-black">${escapeHtml(task.titulo)}</p>
+      <div class="admin-mini-card">
+        <p class="text-sm font-black text-slate-900">${escapeHtml(task.titulo)}</p>
         <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.atribuidoPara)} | ${escapeHtml(task.dataPrazo || '')}</p>
       </div>
     `;
@@ -271,7 +281,7 @@ let currentUser = null;
     $('#adminTaskRows').innerHTML = tasks.map((task) => `
       <tr>
         <td class="px-4 py-3">
-          <div class="font-medium">${escapeHtml(task.titulo)}</div>
+          <div class="font-black text-slate-900">${escapeHtml(task.titulo)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div>
         </td>
         <td class="px-4 py-3">${escapeHtml(task.atribuidoPara)}</td>
@@ -281,13 +291,17 @@ let currentUser = null;
         <td class="px-4 py-3">${escapeHtml(task.tipo)}</td>
         <td class="px-4 py-3">
           <div class="flex justify-end gap-2">
-            <button class="adminDetailsBtn rounded-md border px-2 py-1 text-xs" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
-            <button class="editTaskBtn rounded-md border px-2 py-1 text-xs" data-task-id="${escapeHtml(task.id)}">Editar</button>
-            <button class="deleteTaskBtn rounded-md bg-red-600 px-2 py-1 text-xs text-white" data-task-id="${escapeHtml(task.id)}">Excluir</button>
+            <button class="adminDetailsBtn row-btn" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
+            <button class="editTaskBtn row-btn" data-task-id="${escapeHtml(task.id)}">Editar</button>
+            <button class="deleteTaskBtn row-btn row-btn-danger" data-task-id="${escapeHtml(task.id)}">Excluir</button>
           </div>
         </td>
       </tr>
-    `).join('');
+    `).join('') || `
+      <tr>
+        <td colspan="7" class="px-4 py-8 text-center text-sm font-medium text-slate-500">Nenhuma tarefa encontrada com os filtros atuais.</td>
+      </tr>
+    `;
 
     $$('.editTaskBtn').forEach((button) => {
       button.addEventListener('click', () => openEditTask(button.dataset.taskId));
@@ -312,19 +326,25 @@ let currentUser = null;
         <td class="px-4 py-3">${escapeHtml(user.perfil)}</td>
         <td class="px-4 py-3">${escapeHtml(user.workspace || '')}</td>
         <td class="px-4 py-3">
+          ${user.perfil === 'Colaborador' ? `<button class="openChatBtn row-btn relative" data-email="${escapeHtml(user.email)}" data-name="${escapeHtml(user.nome)}">Chat<span class="chat-badge adminChatBadge hidden" data-email="${escapeHtml(user.email)}">0</span></button>` : '<span class="text-xs text-slate-400">-</span>'}
+        </td>
+        <td class="px-4 py-3">
           <div class="flex justify-end">
-            <button class="editUserBtn rounded-md border px-2 py-1 text-xs" data-user-id="${escapeHtml(user.id)}">Editar</button>
+            <button class="editUserBtn row-btn" data-user-id="${escapeHtml(user.id)}">Editar</button>
           </div>
         </td>
       </tr>
     `).join('') || `
       <tr>
-        <td colspan="5" class="px-4 py-6 text-center text-sm text-slate-500">Nenhum usuario cadastrado.</td>
+        <td colspan="6" class="px-4 py-6 text-center text-sm text-slate-500">Nenhum usuario cadastrado.</td>
       </tr>
     `;
 
     $$('.editUserBtn').forEach((button) => {
       button.addEventListener('click', () => openEditUser(button.dataset.userId));
+    });
+    $$('.openChatBtn').forEach((button) => {
+      button.addEventListener('click', () => openChat(button.dataset.email, button.dataset.name));
     });
   }
 
@@ -880,6 +900,192 @@ let currentUser = null;
     await loadAdmin();
   }
 
+  async function openChat(collaboratorEmail, collaboratorName = '') {
+    selectedChatCollaboratorEmail = collaboratorEmail;
+    clearChatBadge(collaboratorEmail);
+
+    $('#chatTitle').textContent = currentUser.perfil === 'Admin'
+      ? `Chat com ${collaboratorName || collaboratorEmail}`
+      : 'Chat com Admin';
+    $('#chatSubtitle').textContent = 'Mensagens somem automaticamente apos 24h.';
+
+    await loadChatMessages(false);
+    openModal('chatModal');
+  }
+
+  async function loadChatMessages(shouldNotify = true) {
+    const collaboratorEmail = selectedChatCollaboratorEmail || (currentUser?.perfil === 'Colaborador' ? currentUser.email : '');
+    if (!currentUser || !collaboratorEmail) return;
+
+    const messages = await callServer('getChatMessages', collaboratorEmail);
+    renderChatMessages(messages);
+    notifyNewChatMessages(messages, shouldNotify);
+  }
+
+  function renderChatMessages(messages) {
+    $('#chatMessages').innerHTML = messages.map((message) => {
+      const mine = normalizeEmailClient(message.autorEmail) === normalizeEmailClient(currentUser.email);
+      return `
+        <div class="chat-message ${mine ? 'is-mine' : 'is-other'}">
+          <div class="chat-message-meta">
+            <span>${mine ? 'Voce' : escapeHtml(message.autorPerfil === 'Admin' ? 'Admin' : message.autorEmail)}</span>
+            <span>${escapeHtml(message.dataHora || '')}</span>
+          </div>
+          <div class="chat-message-body">${escapeHtml(message.mensagem)}</div>
+        </div>
+      `;
+    }).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm text-slate-500">Nenhuma mensagem nas ultimas 24h.</p>';
+
+    const box = $('#chatMessages');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  async function handleSendChatMessage(event) {
+    event.preventDefault();
+    const input = event.target.elements.mensagem;
+    const text = input.value.trim();
+    if (!text || !selectedChatCollaboratorEmail) return;
+
+    await callServer('sendChatMessage', selectedChatCollaboratorEmail, text, currentUser.email);
+    input.value = '';
+    await loadChatMessages(false);
+  }
+
+  function startChatPolling() {
+    stopChatPolling();
+    chatBootstrapComplete = false;
+    bootstrapChatMessages().finally(() => {
+      if (!currentUser) return;
+      chatBootstrapComplete = true;
+      chatPollTimer = setInterval(async () => {
+        if (!currentUser) return;
+        try {
+          if (currentUser.perfil === 'Admin') {
+            await pollAdminChats();
+          } else {
+            if (!selectedChatCollaboratorEmail) selectedChatCollaboratorEmail = currentUser.email;
+            await pollEmployeeChat();
+          }
+        } catch (error) {
+          console.log('Falha ao atualizar chat.', error);
+        }
+      }, 5000);
+    });
+  }
+
+  async function bootstrapChatMessages() {
+    if (!currentUser) return;
+    knownChatMessageIds = new Set();
+    if (currentUser.perfil === 'Admin') {
+      const contacts = await callServer('getChatContacts');
+      for (const contact of contacts) {
+        const messages = await callServer('getChatMessages', contact.email);
+        messages
+          .filter((message) => normalizeEmailClient(message.autorEmail) !== normalizeEmailClient(currentUser.email))
+          .forEach((message) => knownChatMessageIds.add(message.id));
+      }
+      return;
+    }
+
+    const messages = await callServer('getChatMessages', currentUser.email);
+    messages
+      .filter((message) => normalizeEmailClient(message.autorEmail) !== normalizeEmailClient(currentUser.email))
+      .forEach((message) => knownChatMessageIds.add(message.id));
+  }
+
+  function stopChatPolling() {
+    if (chatPollTimer) {
+      clearInterval(chatPollTimer);
+      chatPollTimer = null;
+    }
+    unreadChatMessages = 0;
+    knownChatMessageIds = new Set();
+    chatBootstrapComplete = false;
+  }
+
+  async function pollEmployeeChat() {
+    const messages = await callServer('getChatMessages', currentUser.email);
+    const isChatOpen = !$('#chatModal').classList.contains('hidden') && selectedChatCollaboratorEmail === currentUser.email;
+    if (isChatOpen) renderChatMessages(messages);
+    notifyNewChatMessages(messages, true);
+  }
+
+  async function pollAdminChats() {
+    const contacts = await callServer('getChatContacts');
+    for (const contact of contacts) {
+      const messages = await callServer('getChatMessages', contact.email);
+      const isChatOpen = !$('#chatModal').classList.contains('hidden') && selectedChatCollaboratorEmail === contact.email;
+      if (isChatOpen) renderChatMessages(messages);
+      notifyNewChatMessages(messages, true, contact.email, contact.nome);
+    }
+  }
+
+  function notifyNewChatMessages(messages, shouldNotify, collaboratorEmail = selectedChatCollaboratorEmail, collaboratorName = '') {
+    const incoming = messages.filter((message) => normalizeEmailClient(message.autorEmail) !== normalizeEmailClient(currentUser.email));
+    const incomingIds = new Set(incoming.map((message) => message.id));
+
+    if (!shouldNotify || !chatBootstrapComplete) {
+      incomingIds.forEach((id) => knownChatMessageIds.add(id));
+      return;
+    }
+
+    const newMessages = incoming.filter((message) => !knownChatMessageIds.has(message.id));
+    incomingIds.forEach((id) => knownChatMessageIds.add(id));
+
+    if (!newMessages.length) return;
+
+    const isChatOpen = !$('#chatModal').classList.contains('hidden') && selectedChatCollaboratorEmail === collaboratorEmail;
+    if (!isChatOpen) incrementChatBadge(collaboratorEmail, newMessages.length);
+
+    const last = newMessages[newMessages.length - 1];
+    startTitleAlert('Nova mensagem!');
+    showTaskAlert(currentUser.perfil === 'Admin' ? `Mensagem de ${collaboratorName || collaboratorEmail}` : 'Mensagem do Admin', last.mensagem);
+    playNotificationSound();
+    showBrowserChatNotification(last, collaboratorName || collaboratorEmail);
+  }
+
+  function incrementChatBadge(collaboratorEmail, count) {
+    unreadChatMessages += count;
+    if (currentUser.perfil === 'Colaborador') {
+      const badge = $('#employeeChatBadge');
+      badge.textContent = unreadChatMessages;
+      badge.classList.remove('hidden');
+      return;
+    }
+
+    $$('.adminChatBadge')
+      .filter((badge) => normalizeEmailClient(badge.dataset.email) === normalizeEmailClient(collaboratorEmail))
+      .forEach((badge) => {
+      const current = Number(badge.textContent || '0') + count;
+      badge.textContent = current;
+      badge.classList.remove('hidden');
+    });
+  }
+
+  function clearChatBadge(collaboratorEmail) {
+    if (currentUser?.perfil === 'Colaborador') {
+      unreadChatMessages = 0;
+      $('#employeeChatBadge').classList.add('hidden');
+      return;
+    }
+
+    $$('.adminChatBadge')
+      .filter((badge) => normalizeEmailClient(badge.dataset.email) === normalizeEmailClient(collaboratorEmail))
+      .forEach((badge) => {
+      badge.textContent = '0';
+      badge.classList.add('hidden');
+    });
+  }
+
+  function showBrowserChatNotification(message, senderLabel) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    new Notification('Nova mensagem no chat', {
+      body: `${senderLabel}: ${message.mensagem}`,
+      tag: message.id,
+    });
+  }
+
   function formToObject(form) {
     const data = {};
     const formData = new FormData(form);
@@ -977,7 +1183,8 @@ let currentUser = null;
     });
   }
 
-  function startTitleAlert() {
+  function startTitleAlert(label = 'Nova tarefa!') {
+    titleAlertLabel = label;
     unreadTaskNotifications += 1;
     setBrowserAttentionTitle();
     setFaviconBadge(unreadTaskNotifications);
@@ -986,7 +1193,7 @@ let currentUser = null;
     let visible = false;
     titleAlertTimer = setInterval(() => {
       visible = !visible;
-      setDocumentTitle(visible ? `(${unreadTaskNotifications}) Nova tarefa!` : originalPageTitle);
+      setDocumentTitle(visible ? `(${unreadTaskNotifications}) ${titleAlertLabel}` : originalPageTitle);
     }, 1000);
   }
 
@@ -1001,7 +1208,7 @@ let currentUser = null;
   }
 
   function setBrowserAttentionTitle() {
-    setDocumentTitle(`(${unreadTaskNotifications}) Nova tarefa!`);
+    setDocumentTitle(`(${unreadTaskNotifications}) ${titleAlertLabel}`);
   }
 
   function setDocumentTitle(title) {
@@ -1155,4 +1362,8 @@ let currentUser = null;
       .replaceAll('>', '&gt;')
       .replaceAll('"', '&quot;')
       .replaceAll("'", '&#039;');
+  }
+
+  function normalizeEmailClient(email) {
+    return String(email || '').trim().toLowerCase();
   }
