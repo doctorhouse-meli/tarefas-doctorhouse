@@ -568,22 +568,22 @@ let currentUser = null;
     const daily = tasks.filter((task) => task.tipo === 'Diaria' && task.status !== 'Concluida').length;
 
     $('#employeeSummary').innerHTML = `
-      <div class="employee-summary-card">
+      <div class="employee-summary-card summary-today">
         <p>Hoje</p>
         <strong>${today}</strong>
         <span>tarefas para resolver</span>
       </div>
-      <div class="employee-summary-card ${overdue ? 'is-danger' : ''}">
+      <div class="employee-summary-card summary-overdue ${overdue ? 'is-danger' : ''}">
         <p>Vencidas</p>
         <strong>${overdue}</strong>
         <span>precisam de atencao</span>
       </div>
-      <div class="employee-summary-card">
+      <div class="employee-summary-card summary-next">
         <p>Proximas</p>
         <strong>${next}</strong>
         <span>fora do prazo de hoje</span>
       </div>
-      <div class="employee-summary-card">
+      <div class="employee-summary-card summary-daily">
         <p>Diarias</p>
         <strong>${daily}</strong>
         <span>rotinas abertas</span>
@@ -611,7 +611,7 @@ let currentUser = null;
     ];
 
     $('#employeeTaskFilters').innerHTML = filters.map(([key, label]) => `
-      <button class="employee-filter-btn ${employeeTaskFilter === key ? 'is-active' : ''}" data-filter="${key}">
+      <button class="employee-filter-btn filter-${key} ${employeeTaskFilter === key ? 'is-active' : ''}" data-filter="${key}">
         <span>${label}</span>
         <strong>${counts[key]}</strong>
       </button>
@@ -655,7 +655,7 @@ let currentUser = null;
             <h2>${titles[employeeTaskFilter] || 'Minhas tarefas'}</h2>
             <p>${tasks.length} tarefa${tasks.length === 1 ? '' : 's'} encontrada${tasks.length === 1 ? '' : 's'}</p>
           </div>
-          <button id="employeeTemplatesShortcut" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700">Tarefas diarias</button>
+          <button id="employeeTemplatesShortcut" class="employee-secondary-action">Tarefas diarias</button>
         </div>
         <div class="employee-list-table">
           ${tasks.map(renderEmployeeTaskCard).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm font-medium text-slate-500">Nenhuma tarefa nesta visualizacao.</p>'}
@@ -678,8 +678,13 @@ let currentUser = null;
 
   function renderEmployeeTaskCard(task) {
     const dueKey = getTaskDueKey(task);
+    const statusClass = task.status === 'Concluida'
+      ? 'is-done'
+      : task.status === 'Em Andamento'
+        ? 'is-progress'
+        : 'is-pending';
     return `
-      <article class="employee-task-row ${dueKey === 'overdue' && task.status !== 'Concluida' ? 'is-overdue' : ''}">
+      <article class="employee-task-row is-${dueKey} ${statusClass}">
         <div class="min-w-0">
           <div class="flex min-w-0 flex-wrap items-center gap-2">
             <button class="taskDetailsBtn employee-task-title text-left text-sm font-black leading-tight text-slate-900 hover:text-sky-700" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.titulo)}</button>
@@ -697,7 +702,7 @@ let currentUser = null;
         </div>
         <div class="employee-row-actions">
           ${renderEmployeeActionButtons(task)}
-          <button class="taskDetailsBtn employee-action-btn border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
+          <button class="taskDetailsBtn employee-action-btn is-details" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
         </div>
       </article>
     `;
@@ -706,19 +711,19 @@ let currentUser = null;
   function renderEmployeeActionButtons(task) {
     if (task.status === 'Pendente') {
       return `
-        <button class="statusBtn employee-action-btn border border-sky-400 bg-sky-50 text-sky-800" data-task-id="${escapeHtml(task.id)}" data-status="Em Andamento">Comecar</button>
-        <button class="statusBtn employee-action-btn bg-emerald-600 text-white" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
+        <button class="statusBtn employee-action-btn is-start" data-task-id="${escapeHtml(task.id)}" data-status="Em Andamento">Comecar</button>
+        <button class="statusBtn employee-action-btn is-finish" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
       `;
     }
 
     if (task.status === 'Em Andamento') {
       return `
-        <button class="statusBtn employee-action-btn bg-emerald-600 text-white" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
+        <button class="statusBtn employee-action-btn is-finish" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
       `;
     }
 
     return `
-      <button class="statusBtn employee-action-btn border border-amber-500 bg-amber-50 text-amber-800" data-task-id="${escapeHtml(task.id)}" data-status="Pendente">Refazer</button>
+      <button class="statusBtn employee-action-btn is-redo" data-task-id="${escapeHtml(task.id)}" data-status="Pendente">Refazer</button>
     `;
   }
 

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/styles.css?v=20260825-2">
+    <link rel="stylesheet" href="/styles.css?v=20260825-4">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -38,11 +38,13 @@
 
       <section id="dashboardView" class="hidden min-h-screen">
         <header class="app-header">
-          <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p class="text-xs font-black uppercase text-slate-400">Doctor House</p>
-              <h1 class="text-xl font-semibold">Gestao de Tarefas</h1>
-              <p id="userInfo" class="text-sm text-slate-500"></p>
+          <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="brand-header">
+              <img src="/assets/doctor-house-logo.png" alt="Doctor House" class="brand-logo">
+              <div>
+                <h1 class="text-xl font-semibold">Gestao de Tarefas</h1>
+                <p id="userInfo" class="text-sm text-slate-500"></p>
+              </div>
             </div>
             <button id="logoutBtn" class="btn-secondary">Sair</button>
           </div>
@@ -55,19 +57,19 @@
           </div>
 
           <div class="grid gap-3 sm:grid-cols-4">
-            <div class="stat-card">
+            <div class="stat-card stat-pending">
               <p class="text-sm text-slate-500">Pendentes</p>
               <p id="statPendente" class="mt-2 text-3xl font-semibold"></p>
             </div>
-            <div class="stat-card">
+            <div class="stat-card stat-progress">
               <p class="text-sm text-slate-500">Em andamento</p>
               <p id="statAndamento" class="mt-2 text-3xl font-semibold"></p>
             </div>
-            <div class="stat-card">
+            <div class="stat-card stat-done">
               <p class="text-sm text-slate-500">Concluidas</p>
               <p id="statConcluida" class="mt-2 text-3xl font-semibold"></p>
             </div>
-            <div class="stat-card">
+            <div class="stat-card stat-total">
               <p class="text-sm text-slate-500">Total</p>
               <p id="statTotal" class="mt-2 text-3xl font-semibold"></p>
             </div>
@@ -439,7 +441,7 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260825-2"></script>
+    <script src="/app.js?v=20260825-4"></script>
   </body>
 </html>
 
