@@ -596,7 +596,7 @@ let currentUser = null;
         <span>pendentes vencidas</span>
       </button>
       <button type="button" class="employee-summary-card summary-next ${employeeTaskFilter === 'next' ? 'is-active' : ''}" data-filter="next">
-        <p>Proximas</p>
+        <p>Proximos dias</p>
         <strong>${next}</strong>
         <span>agendadas para depois</span>
       </button>
@@ -621,7 +621,7 @@ let currentUser = null;
       ['pending', 'Pendentes'],
       ['doing', 'Em andamento'],
       ['overdue', 'Atrasadas'],
-      ['next', 'Proximas'],
+      ['next', 'Proximos dias'],
       ['done', 'Concluidas'],
     ];
 
@@ -672,7 +672,7 @@ let currentUser = null;
       pending: 'Tarefas pendentes',
       doing: 'Tarefas em andamento',
       overdue: 'Tarefas atrasadas',
-      next: 'Proximas tarefas',
+      next: 'Tarefas dos proximos dias',
       done: 'Tarefas concluidas',
     };
 
@@ -683,7 +683,6 @@ let currentUser = null;
             <h2>${titles[employeeTaskFilter] || 'Minhas tarefas'}</h2>
             <p>${tasks.length} tarefa${tasks.length === 1 ? '' : 's'} encontrada${tasks.length === 1 ? '' : 's'}</p>
           </div>
-          <button id="employeeTemplatesShortcut" class="employee-secondary-action">Tarefas diarias</button>
         </div>
         ${employeeTaskFilter === 'pending' ? renderPendingSubfilters() : ''}
         <div class="employee-list-table">
@@ -691,11 +690,6 @@ let currentUser = null;
         </div>
       </section>
     `;
-
-    $('#employeeTemplatesShortcut').addEventListener('click', async () => {
-      await loadEmployeeTemplates();
-      openModal('employeeTemplatesListModal');
-    });
 
     $$('.taskDetailsBtn').forEach((button) => {
       button.addEventListener('click', () => openTaskDetails(tasks.find((task) => task.id === button.dataset.taskId)));
@@ -720,7 +714,7 @@ let currentUser = null;
     const filters = [
       ['today', 'Hoje'],
       ['overdue', 'Atrasadas'],
-      ['next', 'Proximas'],
+      ['next', 'Proximos dias'],
     ];
     return `
       <div class="pending-subfilters">
