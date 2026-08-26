@@ -168,6 +168,7 @@ function formatTask(row) {
     status: row.status,
     atribuidoPara: row.atribuido_para,
     tipo: row.tipo,
+    origemTemplateId: row.origem_template_id || '',
     dataCriacao: toDateTime(row.data_criacao),
     dataCriacaoSort: createdSort,
     dataConclusao: toDateTime(row.data_conclusao),
@@ -485,6 +486,10 @@ export async function updateTask(taskId, taskData) {
 }
 
 export async function deleteTask(taskId) {
+  const current = await query('SELECT * FROM tarefas WHERE id = $1', [taskId]);
+  if (!current.rowCount) throw new Error('Tarefa nao encontrada.');
+  await markDailyTaskAsIgnored(current.rows[0]);
+
   const result = await query('DELETE FROM tarefas WHERE id = $1 RETURNING *', [taskId]);
   if (!result.rowCount) throw new Error('Tarefa nao encontrada.');
   return { deleted: true };
@@ -612,17 +617,39 @@ export async function deleteEmployeeDailyTemplate(templateId, userEmail) {
 }
 
 async function createTaskFromTemplate(template, dateKey) {
-  const exists = await query(
-    `SELECT 1 FROM tarefas
-     WHERE workspace = $1 AND titulo = $2 AND atribuido_para = $3 AND data_prazo = $4 AND tipo = 'Diaria'`,
-    [template.workspace, template.titulo, normalizeEmail(template.atribuidoPara), dateKey],
+  const generation = await query(
+    'SELECT 1 FROM geracoes_diarias WHERE template_id = $1 AND data_prazo = $2',
+    [template.id, dateKey],
   );
-  if (exists.rowCount) return false;
+  if (generation.rowCount) return false;
+
+  const exists = await query(
+    `SELECT id FROM tarefas
+     WHERE data_prazo = $1
+       AND tipo = 'Diaria'
+       AND (
+         origem_template_id = $2
+         OR (
+           origem_template_id IS NULL
+           AND workspace = $3
+           AND titulo = $4
+           AND atribuido_para = $5
+         )
+       )
+     ORDER BY data_criacao ASC
+     LIMIT 1`,
+    [dateKey, template.id, template.workspace, template.titulo, normalizeEmail(template.atribuidoPara)],
+  );
+  if (exists.rowCount) {
+    await query('UPDATE tarefas SET origem_template_id = $2 WHERE id = $1 AND origem_template_id IS NULL', [exists.rows[0].id, template.id]);
+    await registerDailyGeneration(template.id, dateKey, exists.rows[0].id, false);
+    return false;
+  }
 
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria')
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, origem_template_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria', $9)
      RETURNING *`,
     [
       makeId('TSK'),
@@ -633,10 +660,58 @@ async function createTaskFromTemplate(template, dateKey) {
       dateKey,
       normalizeTime(template.horarioPrazo),
       normalizeEmail(template.atribuidoPara),
+      template.id,
     ],
   );
+  await registerDailyGeneration(template.id, dateKey, result.rows[0].id, false);
   await addHistory(result.rows[0].id, 'sistema', 'Gerou tarefa diaria', template.titulo);
   return true;
+}
+
+async function registerDailyGeneration(templateId, dateKey, taskId = null, ignored = false) {
+  if (!templateId || !dateKey) return;
+  await query(
+    `INSERT INTO geracoes_diarias (template_id, data_prazo, task_id, ignorada)
+     VALUES ($1, $2, $3, $4)
+     ON CONFLICT (template_id, data_prazo) DO UPDATE
+     SET task_id = COALESCE(geracoes_diarias.task_id, EXCLUDED.task_id),
+         ignorada = geracoes_diarias.ignorada OR EXCLUDED.ignorada`,
+    [templateId, dateKey, taskId, Boolean(ignored)],
+  );
+}
+
+async function markDailyTaskAsIgnored(task) {
+  if (!task || task.tipo !== 'Diaria' || !task.data_prazo) return;
+
+  let templateId = task.origem_template_id || '';
+  const dateKey = toDateKey(task.data_prazo);
+
+  if (!templateId) {
+    const weekday = weekdayKey(dateKey);
+    const candidates = await query(
+      `SELECT id
+       FROM templates_diarios
+       WHERE workspace = $1
+         AND atribuido_para = $2
+         AND (
+           titulo = $3
+           OR (
+             SELECT COUNT(*)
+             FROM templates_diarios t2
+             WHERE t2.workspace = $1
+               AND t2.atribuido_para = $2
+               AND POSITION($4 IN t2.dias_semana) > 0
+           ) = 1
+         )
+         AND POSITION($4 IN dias_semana) > 0
+       ORDER BY titulo
+       LIMIT 1`,
+      [task.workspace, normalizeEmail(task.atribuido_para), task.titulo, weekday],
+    );
+    templateId = candidates.rows[0]?.id || '';
+  }
+
+  if (templateId) await registerDailyGeneration(templateId, dateKey, task.id, true);
 }
 
 export async function generateDailyTasks() {

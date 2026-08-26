@@ -48,6 +48,7 @@ export async function initDb() {
       status TEXT NOT NULL DEFAULT 'Pendente',
       atribuido_para TEXT NOT NULL,
       tipo TEXT NOT NULL DEFAULT 'Manual',
+      origem_template_id TEXT,
       data_criacao TIMESTAMPTZ DEFAULT NOW(),
       data_conclusao TIMESTAMPTZ
     );
@@ -100,8 +101,18 @@ export async function initDb() {
       mensagem TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS geracoes_diarias (
+      template_id TEXT NOT NULL,
+      data_prazo DATE NOT NULL,
+      task_id TEXT,
+      ignorada BOOLEAN DEFAULT FALSE,
+      data_registro TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template_id, data_prazo)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_tarefas_atribuido_para ON tarefas(atribuido_para);
     CREATE INDEX IF NOT EXISTS idx_tarefas_prazo ON tarefas(data_prazo);
+    CREATE INDEX IF NOT EXISTS idx_tarefas_origem_template ON tarefas(origem_template_id);
     CREATE INDEX IF NOT EXISTS idx_templates_diarios_email ON templates_diarios(atribuido_para);
     CREATE INDEX IF NOT EXISTS idx_chat_colaborador_data ON chat_mensagens(colaborador_email, data_hora);
   `);
@@ -109,7 +120,19 @@ export async function initDb() {
   await query("ALTER TABLE chat_mensagens ADD COLUMN IF NOT EXISTS destinatario_email TEXT");
   await query("ALTER TABLE chat_mensagens ADD COLUMN IF NOT EXISTS conversa_key TEXT");
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS horario_prazo TIME");
+  await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS origem_template_id TEXT");
   await query("ALTER TABLE templates_diarios ADD COLUMN IF NOT EXISTS horario_prazo TIME");
+  await query(`
+    CREATE TABLE IF NOT EXISTS geracoes_diarias (
+      template_id TEXT NOT NULL,
+      data_prazo DATE NOT NULL,
+      task_id TEXT,
+      ignorada BOOLEAN DEFAULT FALSE,
+      data_registro TIMESTAMPTZ DEFAULT NOW(),
+      PRIMARY KEY (template_id, data_prazo)
+    )
+  `);
+  await query("CREATE INDEX IF NOT EXISTS idx_tarefas_origem_template ON tarefas(origem_template_id)");
   await query("CREATE INDEX IF NOT EXISTS idx_chat_conversa_data ON chat_mensagens(conversa_key, data_hora)");
   await query(`
     UPDATE chat_mensagens
