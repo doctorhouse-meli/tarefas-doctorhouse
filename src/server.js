@@ -74,6 +74,20 @@ function toDateTime(value) {
   }).format(new Date(value));
 }
 
+function normalizeTime(value) {
+  const time = String(value || '').trim();
+  if (!time) return null;
+  const match = time.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  if (!match) throw new Error('Horario invalido. Use HH:MM.');
+  return `${match[1]}:${match[2]}`;
+}
+
+function toTimeKey(value) {
+  if (!value) return '';
+  const text = String(value);
+  return text.slice(0, 5);
+}
+
 function normalizeWeekdays(value) {
   const days = String(value || '1,2,3,4,5')
     .split(',')
@@ -150,6 +164,7 @@ function formatTask(row) {
     descricao: row.descricao || '',
     prioridade: row.prioridade,
     dataPrazo: toDateKey(row.data_prazo),
+    horarioPrazo: toTimeKey(row.horario_prazo),
     status: row.status,
     atribuidoPara: row.atribuido_para,
     tipo: row.tipo,
@@ -169,6 +184,7 @@ function formatTemplate(row) {
     descricao: row.descricao || '',
     prioridade: row.prioridade,
     atribuidoPara: row.atribuido_para,
+    horarioPrazo: toTimeKey(row.horario_prazo),
     diasSemana: row.dias_semana || '1,2,3,4,5',
     diasSemanaLabel: weekdaysLabel(row.dias_semana || '1,2,3,4,5'),
   };
@@ -405,8 +421,8 @@ export async function createTask(taskData) {
   const status = taskData.status || 'Pendente';
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, status, atribuido_para, tipo, data_conclusao)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'Manual', $9)
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, data_conclusao)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, 'Manual', $10)
      RETURNING *`,
     [
       makeId('TSK'),
@@ -415,6 +431,7 @@ export async function createTask(taskData) {
       taskData.descricao || '',
       taskData.prioridade,
       taskData.dataPrazo,
+      normalizeTime(taskData.horarioPrazo),
       status,
       normalizeEmail(taskData.atribuidoPara),
       status === 'Concluida' ? new Date() : null,
@@ -447,7 +464,7 @@ export async function updateTask(taskId, taskData) {
   const result = await query(
     `UPDATE tarefas
      SET workspace = $2, titulo = $3, descricao = $4, prioridade = $5, data_prazo = $6,
-         status = $7, atribuido_para = $8, data_conclusao = $9
+         horario_prazo = $7::time, status = $8, atribuido_para = $9, data_conclusao = $10
      WHERE id = $1
      RETURNING *`,
     [
@@ -457,6 +474,7 @@ export async function updateTask(taskId, taskData) {
       taskData.descricao || '',
       taskData.prioridade,
       taskData.dataPrazo,
+      normalizeTime(taskData.horarioPrazo),
       taskData.status,
       normalizeEmail(taskData.atribuidoPara),
       completedAt,
@@ -489,7 +507,7 @@ export async function updateTaskStatus(taskId, newStatus, userEmail) {
 export async function getEmployeeTasks(userEmail) {
   await generateDailyTasks();
   const result = await query(
-    'SELECT * FROM tarefas WHERE atribuido_para = $1 ORDER BY data_prazo ASC, data_criacao DESC',
+    'SELECT * FROM tarefas WHERE atribuido_para = $1 ORDER BY data_prazo ASC, horario_prazo ASC NULLS LAST, data_criacao ASC',
     [normalizeEmail(userEmail)],
   );
   return result.rows.map(formatTask);
@@ -498,7 +516,7 @@ export async function getEmployeeTasks(userEmail) {
 export async function getAdminDashboardData() {
   await generateDailyTasks();
   const [tasksResult, usersResult, workspaces] = await Promise.all([
-    query('SELECT * FROM tarefas ORDER BY data_prazo ASC, data_criacao DESC'),
+    query('SELECT * FROM tarefas ORDER BY data_prazo ASC, horario_prazo ASC NULLS LAST, data_criacao ASC'),
     query('SELECT * FROM usuarios ORDER BY nome'),
     getWorkspaces(),
   ]);
@@ -545,8 +563,8 @@ export async function createDailyTemplate(templateData) {
   await ensureWorkspaceExists(templateData.workspace);
   const result = await query(
     `INSERT INTO templates_diarios
-      (id, workspace, titulo, descricao, prioridade, atribuido_para, dias_semana)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+      (id, workspace, titulo, descricao, prioridade, atribuido_para, horario_prazo, dias_semana)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8)
      RETURNING *`,
     [
       makeId('TPL'),
@@ -555,6 +573,7 @@ export async function createDailyTemplate(templateData) {
       templateData.descricao || '',
       templateData.prioridade,
       normalizeEmail(templateData.atribuidoPara),
+      normalizeTime(templateData.horarioPrazo),
       normalizeWeekdays(templateData.diasSemana),
     ],
   );
@@ -602,8 +621,8 @@ async function createTaskFromTemplate(template, dateKey) {
 
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, status, atribuido_para, tipo)
-     VALUES ($1, $2, $3, $4, $5, $6, 'Pendente', $7, 'Diaria')
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria')
      RETURNING *`,
     [
       makeId('TSK'),
@@ -612,6 +631,7 @@ async function createTaskFromTemplate(template, dateKey) {
       template.descricao || '',
       template.prioridade || 'Media',
       dateKey,
+      normalizeTime(template.horarioPrazo),
       normalizeEmail(template.atribuidoPara),
     ],
   );

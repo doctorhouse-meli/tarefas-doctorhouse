@@ -52,6 +52,14 @@ function normalizeDateTime(input) {
   return date.toISOString();
 }
 
+function normalizeTime(input) {
+  if (!input) return null;
+  const text = String(input).trim();
+  if (!text) return null;
+  const match = text.match(/^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
 function normalizePriority(input) {
   const text = String(input || 'Media').trim();
   return ['Baixa', 'Media', 'Alta', 'Urgente'].includes(text) ? text : 'Media';
@@ -168,14 +176,15 @@ async function importTasks(tasks) {
     await ensureWorkspace(workspace);
     await query(
       `INSERT INTO tarefas
-        (id, workspace, titulo, descricao, prioridade, data_prazo, status, atribuido_para, tipo, data_criacao, data_conclusao)
-       VALUES ($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), $7, $8, $9, COALESCE($10::timestamptz, NOW()), $11::timestamptz)
+        (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, data_criacao, data_conclusao)
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE), $7::time, $8, $9, $10, COALESCE($11::timestamptz, NOW()), $12::timestamptz)
        ON CONFLICT (id) DO UPDATE
        SET workspace = EXCLUDED.workspace,
            titulo = EXCLUDED.titulo,
            descricao = EXCLUDED.descricao,
            prioridade = EXCLUDED.prioridade,
            data_prazo = EXCLUDED.data_prazo,
+           horario_prazo = EXCLUDED.horario_prazo,
            status = EXCLUDED.status,
            atribuido_para = EXCLUDED.atribuido_para,
            tipo = EXCLUDED.tipo,
@@ -188,6 +197,7 @@ async function importTasks(tasks) {
         value(row, ['Descricao', 'Descrição', 'descricao'], ''),
         normalizePriority(value(row, ['Prioridade (Baixa/Media/Alta/Urgente)', 'Prioridade', 'prioridade'], 'Media')),
         normalizeDate(value(row, ['DataPrazo', 'dataPrazo', 'data_prazo'])),
+        normalizeTime(value(row, ['HorarioPrazo', 'HorárioPrazo', 'Horario', 'Horário', 'horarioPrazo', 'horario_prazo'])),
         normalizeStatus(value(row, ['Status (Pendente/Em Andamento/Concluida)', 'Status', 'status'], 'Pendente')),
         assignedTo,
         normalizeType(value(row, ['Tipo (Manual/Diaria)', 'Tipo', 'tipo'], 'Manual')),
@@ -210,14 +220,15 @@ async function importTemplates(templates) {
     await ensureWorkspace(workspace);
     await query(
       `INSERT INTO templates_diarios
-        (id, workspace, titulo, descricao, prioridade, atribuido_para, dias_semana)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (id, workspace, titulo, descricao, prioridade, atribuido_para, horario_prazo, dias_semana)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8)
        ON CONFLICT (id) DO UPDATE
        SET workspace = EXCLUDED.workspace,
            titulo = EXCLUDED.titulo,
            descricao = EXCLUDED.descricao,
            prioridade = EXCLUDED.prioridade,
            atribuido_para = EXCLUDED.atribuido_para,
+           horario_prazo = EXCLUDED.horario_prazo,
            dias_semana = EXCLUDED.dias_semana`,
       [
         validId(value(row, ['ID', 'id']), 'TPL'),
@@ -226,6 +237,7 @@ async function importTemplates(templates) {
         value(row, ['Descricao', 'Descrição', 'descricao'], ''),
         normalizePriority(value(row, ['Prioridade', 'prioridade'], 'Media')),
         assignedTo,
+        normalizeTime(value(row, ['HorarioPrazo', 'HorárioPrazo', 'Horario', 'Horário', 'horarioPrazo', 'horario_prazo'])),
         normalizeWeekdays(value(row, ['DiasSemana', 'diasSemana', 'dias_semana'], '1,2,3,4,5')),
       ],
     );

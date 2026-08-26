@@ -247,7 +247,7 @@ let currentUser = null;
     return `
       <div class="admin-mini-card">
         <p class="text-sm font-black text-slate-900">${escapeHtml(task.titulo)}</p>
-        <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.atribuidoPara)} | ${escapeHtml(task.dataPrazo || '')}</p>
+        <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.atribuidoPara)} | ${escapeHtml(formatTaskSchedule(task))}</p>
       </div>
     `;
   }
@@ -295,7 +295,7 @@ let currentUser = null;
         </td>
         <td class="px-4 py-3">${escapeHtml(task.atribuidoPara)}</td>
         <td class="px-4 py-3">${priorityBadge(task.prioridade)}</td>
-        <td class="px-4 py-3">${escapeHtml(task.dataPrazo || '')}</td>
+        <td class="px-4 py-3">${escapeHtml(formatTaskSchedule(task))}</td>
         <td class="px-4 py-3">${statusBadge(task.status)}</td>
         <td class="px-4 py-3">${escapeHtml(task.tipo)}</td>
         <td class="px-4 py-3">
@@ -409,6 +409,7 @@ let currentUser = null;
     form.elements.descricao.value = task.descricao || '';
     form.elements.prioridade.value = task.prioridade || 'Media';
     form.elements.dataPrazo.value = task.dataPrazo || '';
+    form.elements.horarioPrazo.value = task.horarioPrazo || '';
     form.elements.status.value = task.status || 'Pendente';
     form.elements.atribuidoPara.value = task.atribuidoPara || '';
     form.elements.workspace.value = task.workspace || '';
@@ -477,7 +478,7 @@ let currentUser = null;
                   <div class="text-xs text-slate-500">${escapeHtml(template.descricao || '')}</div>
                 </td>
                 <td class="px-3 py-2">${priorityBadge(template.prioridade || 'Media')}</td>
-                <td class="px-3 py-2 text-xs font-bold text-slate-500">${escapeHtml(template.workspace || '')}<br>${escapeHtml(template.diasSemanaLabel || '')}</td>
+                <td class="px-3 py-2 text-xs font-bold text-slate-500">${escapeHtml(template.workspace || '')}<br>${escapeHtml(template.diasSemanaLabel || '')}${template.horarioPrazo ? `<br>${escapeHtml(template.horarioPrazo)}` : ''}</td>
                 <td class="px-3 py-2 text-right">
                   <button class="deleteEmployeeTemplateBtn rounded-md bg-red-50 px-2 py-1 text-xs font-black text-red-700" data-template-id="${escapeHtml(template.id)}">Excluir</button>
                 </td>
@@ -499,8 +500,8 @@ let currentUser = null;
         if (a.status === 'Concluida' && b.status === 'Concluida') {
           return getCompletedSortValue(b) - getCompletedSortValue(a);
         }
-        const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
-        const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
+        const dueA = getScheduleSortValue(a);
+        const dueB = getScheduleSortValue(b);
         return dueA - dueB;
       });
   }
@@ -538,8 +539,8 @@ let currentUser = null;
       if (a.status === 'Concluida' && b.status === 'Concluida') {
         return getCompletedSortValue(b) - getCompletedSortValue(a);
       }
-      const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
-      const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
+      const dueA = getScheduleSortValue(a);
+      const dueB = getScheduleSortValue(b);
       if (dueA !== dueB) return dueA - dueB;
       return String(a.titulo || '').localeCompare(String(b.titulo || ''));
     });
@@ -547,12 +548,12 @@ let currentUser = null;
 
   function sortOldestFirst(tasks) {
     return [...tasks].sort((a, b) => {
+      const dueA = getScheduleSortValue(a);
+      const dueB = getScheduleSortValue(b);
+      if (dueA !== dueB) return dueA - dueB;
       const createdA = Number(a.dataCriacaoSort || 0);
       const createdB = Number(b.dataCriacaoSort || 0);
       if (createdA !== createdB) return createdA - createdB;
-      const dueA = a.dataPrazo ? new Date(a.dataPrazo + 'T12:00:00').getTime() : 0;
-      const dueB = b.dataPrazo ? new Date(b.dataPrazo + 'T12:00:00').getTime() : 0;
-      if (dueA !== dueB) return dueA - dueB;
       return String(a.titulo || '').localeCompare(String(b.titulo || ''));
     });
   }
@@ -568,8 +569,19 @@ let currentUser = null;
 
   function getCompletedSortValue(task) {
     if (task.dataConclusaoSort) return Number(task.dataConclusaoSort);
-    if (task.dataPrazo) return new Date(task.dataPrazo + 'T12:00:00').getTime();
+    if (task.dataPrazo) return getScheduleSortValue(task);
     return 0;
+  }
+
+  function getScheduleSortValue(task) {
+    if (!task.dataPrazo) return Number.MAX_SAFE_INTEGER;
+    const time = task.horarioPrazo || '23:59';
+    return new Date(`${task.dataPrazo}T${time}:00`).getTime();
+  }
+
+  function formatTaskSchedule(task) {
+    if (!task.dataPrazo) return 'Sem prazo';
+    return task.horarioPrazo ? `${task.dataPrazo} - ${task.horarioPrazo}` : task.dataPrazo;
   }
 
   function toDateKey(date) {
@@ -815,10 +827,11 @@ let currentUser = null;
   function formatDueLabel(task) {
     if (!task.dataPrazo) return 'Sem prazo';
     const dueKey = getTaskDueKey(task);
-    if (task.status === 'Concluida') return `Prazo: ${task.dataPrazo}`;
-    if (dueKey === 'today') return `Hoje: ${task.dataPrazo}`;
-    if (dueKey === 'overdue') return `Vencida: ${task.dataPrazo}`;
-    return `Prazo: ${task.dataPrazo}`;
+    const schedule = formatTaskSchedule(task);
+    if (task.status === 'Concluida') return `Prazo: ${schedule}`;
+    if (dueKey === 'today') return `Hoje: ${schedule}`;
+    if (dueKey === 'overdue') return `Vencida: ${schedule}`;
+    return `Prazo: ${schedule}`;
   }
 
   function getStatusWeight(status) {
@@ -1436,7 +1449,7 @@ let currentUser = null;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     new Notification('Nova tarefa recebida', {
-      body: `${task.titulo} - Prazo: ${task.dataPrazo || 'sem prazo'}`,
+      body: `${task.titulo} - Prazo: ${formatTaskSchedule(task)}`,
       tag: task.id,
     });
   }

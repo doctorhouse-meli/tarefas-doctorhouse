@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/styles.css?v=20260825-16">
+    <link rel="stylesheet" href="/styles.css?v=20260826-01">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -214,6 +214,7 @@
             <option>Baixa</option><option>Media</option><option>Alta</option><option>Urgente</option>
           </select>
           <input name="dataPrazo" required type="date" class="input">
+          <input name="horarioPrazo" type="time" aria-label="Horario opcional" class="input">
           <select name="status" required class="input">
             <option>Pendente</option><option>Em Andamento</option><option>Concluida</option>
           </select>
@@ -236,6 +237,7 @@
           <select name="prioridade" required class="input">
             <option>Baixa</option><option selected>Media</option><option>Alta</option><option>Urgente</option>
           </select>
+          <input name="horarioPrazo" type="time" aria-label="Horario opcional" class="input">
           <select name="atribuidoPara" required class="input employeeSelect"></select>
           <select name="workspace" required class="input workspaceSelect"></select>
           <div>
@@ -288,6 +290,7 @@
           <select name="prioridade" required class="input">
             <option>Baixa</option><option selected>Media</option><option>Alta</option><option>Urgente</option>
           </select>
+          <input name="horarioPrazo" type="time" aria-label="Horario opcional" class="input">
           <div>
             <p class="mb-2 text-sm font-medium">Dias da semana</p>
             <div class="grid grid-cols-4 gap-2 text-sm">
@@ -323,6 +326,7 @@
             <option>Baixa</option><option selected>Media</option><option>Alta</option><option>Urgente</option>
           </select>
           <input name="dataPrazo" required type="date" class="input">
+          <input name="horarioPrazo" type="time" aria-label="Horario opcional" class="input">
         </div>
         <div class="mt-5 flex justify-end gap-2">
           <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
@@ -441,7 +445,7 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260825-16"></script>
+    <script src="/app.js?v=20260826-01"></script>
   </body>
 </html>
 

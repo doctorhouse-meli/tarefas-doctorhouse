@@ -44,6 +44,7 @@ export async function initDb() {
       descricao TEXT DEFAULT '',
       prioridade TEXT NOT NULL DEFAULT 'Media',
       data_prazo DATE NOT NULL,
+      horario_prazo TIME,
       status TEXT NOT NULL DEFAULT 'Pendente',
       atribuido_para TEXT NOT NULL,
       tipo TEXT NOT NULL DEFAULT 'Manual',
@@ -58,6 +59,7 @@ export async function initDb() {
       descricao TEXT DEFAULT '',
       prioridade TEXT NOT NULL DEFAULT 'Media',
       atribuido_para TEXT NOT NULL,
+      horario_prazo TIME,
       dias_semana TEXT NOT NULL DEFAULT '1,2,3,4,5'
     );
 
@@ -106,6 +108,8 @@ export async function initDb() {
 
   await query("ALTER TABLE chat_mensagens ADD COLUMN IF NOT EXISTS destinatario_email TEXT");
   await query("ALTER TABLE chat_mensagens ADD COLUMN IF NOT EXISTS conversa_key TEXT");
+  await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS horario_prazo TIME");
+  await query("ALTER TABLE templates_diarios ADD COLUMN IF NOT EXISTS horario_prazo TIME");
   await query("CREATE INDEX IF NOT EXISTS idx_chat_conversa_data ON chat_mensagens(conversa_key, data_hora)");
   await query(`
     UPDATE chat_mensagens
