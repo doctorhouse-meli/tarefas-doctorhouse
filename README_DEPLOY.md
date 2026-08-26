@@ -104,17 +104,6 @@ O admin pode:
 
 Ao alterar o e-mail/login, o sistema tambem atualiza as tarefas, modelos diarios, comentarios e historico vinculados ao e-mail antigo.
 
-## Chat interno
-
-O sistema tem chat interno entre Admin e cada Colaborador.
-
-- Admin acessa o chat pela tabela `Usuarios`, no botao `Chat` de cada colaborador.
-- Colaborador acessa pelo botao `Chat admin`.
-- Mensagens ficam salvas no PostgreSQL em `chat_mensagens`.
-- Mensagens com mais de 24h sao apagadas automaticamente quando o chat e consultado ou uma nova mensagem e enviada.
-- Admin e colaborador recebem alerta visual, som, badge e notificacao do navegador quando permitido.
-- O chat atualiza automaticamente a cada 5 segundos enquanto a dashboard esta aberta.
-
 ## Migracao dos dados antigos
 
 Veja o passo a passo em:

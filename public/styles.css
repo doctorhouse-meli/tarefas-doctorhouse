@@ -263,6 +263,12 @@
     box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
   }
 
+  .time-select {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
   .modal {
     position: fixed;
     inset: 0;
@@ -666,87 +672,6 @@
     overflow-wrap: anywhere;
   }
 
-  .chat-badge {
-    position: absolute;
-    right: -0.45rem;
-    top: -0.45rem;
-    min-width: 1.15rem;
-    border-radius: 999px;
-    background: rgb(239 68 68);
-    color: white;
-    padding: 0.05rem 0.3rem;
-    font-size: 0.68rem;
-    font-weight: 900;
-    line-height: 1.1rem;
-    text-align: center;
-  }
-
-  .chat-messages {
-    display: flex;
-    min-height: 18rem;
-    max-height: 26rem;
-    flex-direction: column;
-    gap: 0.55rem;
-    overflow-y: auto;
-    border-radius: 0.5rem;
-    border: 1px solid rgb(226 232 240);
-    background: rgb(248 250 252);
-    padding: 0.8rem;
-  }
-
-  .admin-chat-contact {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.8rem;
-    border-radius: 0.55rem;
-    border: 1px solid rgb(226 232 240);
-    background: white;
-    padding: 0.75rem 0.85rem;
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.045);
-  }
-
-  .admin-chat-contact:hover {
-    background: rgb(248 250 252);
-  }
-
-  .chat-message {
-    max-width: min(86%, 34rem);
-    border-radius: 0.65rem;
-    padding: 0.55rem 0.7rem;
-    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
-  }
-
-  .chat-message.is-mine {
-    align-self: flex-end;
-    background: rgb(15 23 42);
-    color: white;
-  }
-
-  .chat-message.is-other {
-    align-self: flex-start;
-    background: white;
-    color: rgb(15 23 42);
-  }
-
-  .chat-message-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    justify-content: space-between;
-    font-size: 0.68rem;
-    font-weight: 800;
-    opacity: 0.72;
-  }
-
-  .chat-message-body {
-    margin-top: 0.25rem;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font-size: 0.86rem;
-    line-height: 1.35;
-  }
-
   .employee-row-actions {
     display: flex;
     flex-wrap: wrap;
@@ -845,8 +770,4 @@
       justify-content: flex-start;
     }
 
-    .admin-chat-contact {
-      align-items: stretch;
-      flex-direction: column;
-    }
   }

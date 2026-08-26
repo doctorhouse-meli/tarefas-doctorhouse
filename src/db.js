@@ -90,17 +90,6 @@ export async function initDb() {
       detalhes TEXT DEFAULT ''
     );
 
-    CREATE TABLE IF NOT EXISTS chat_mensagens (
-      id TEXT PRIMARY KEY,
-      colaborador_email TEXT NOT NULL,
-      autor_email TEXT NOT NULL,
-      autor_perfil TEXT NOT NULL,
-      destinatario_email TEXT,
-      conversa_key TEXT,
-      data_hora TIMESTAMPTZ DEFAULT NOW(),
-      mensagem TEXT NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS geracoes_diarias (
       template_id TEXT NOT NULL,
       data_prazo DATE NOT NULL,
@@ -113,11 +102,9 @@ export async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_tarefas_atribuido_para ON tarefas(atribuido_para);
     CREATE INDEX IF NOT EXISTS idx_tarefas_prazo ON tarefas(data_prazo);
     CREATE INDEX IF NOT EXISTS idx_templates_diarios_email ON templates_diarios(atribuido_para);
-    CREATE INDEX IF NOT EXISTS idx_chat_colaborador_data ON chat_mensagens(colaborador_email, data_hora);
   `);
 
-  await query("ALTER TABLE chat_mensagens ADD COLUMN IF NOT EXISTS destinatario_email TEXT");
-  await query("ALTER TABLE chat_mensagens ADD COLUMN IF NOT EXISTS conversa_key TEXT");
+  await query("DROP TABLE IF EXISTS chat_mensagens");
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS horario_prazo TIME");
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS origem_template_id TEXT");
   await query("ALTER TABLE templates_diarios ADD COLUMN IF NOT EXISTS horario_prazo TIME");
@@ -132,26 +119,6 @@ export async function initDb() {
     )
   `);
   await query("CREATE INDEX IF NOT EXISTS idx_tarefas_origem_template ON tarefas(origem_template_id)");
-  await query("CREATE INDEX IF NOT EXISTS idx_chat_conversa_data ON chat_mensagens(conversa_key, data_hora)");
-  await query(`
-    UPDATE chat_mensagens
-    SET destinatario_email = CASE
-          WHEN LOWER(autor_email) = LOWER(colaborador_email)
-            THEN COALESCE((SELECT email FROM usuarios WHERE perfil = 'Admin' ORDER BY nome LIMIT 1), autor_email)
-          ELSE colaborador_email
-        END
-    WHERE destinatario_email IS NULL
-  `);
-  await query(`
-    UPDATE chat_mensagens
-    SET conversa_key = CASE
-          WHEN LOWER(autor_email) < LOWER(destinatario_email)
-            THEN LOWER(autor_email) || '|' || LOWER(destinatario_email)
-          ELSE LOWER(destinatario_email) || '|' || LOWER(autor_email)
-        END
-    WHERE conversa_key IS NULL AND destinatario_email IS NOT NULL
-  `);
-
   await query(`
     INSERT INTO workspaces (id, nome, descricao)
     VALUES ($1, 'Principal', 'Workspace padrao')

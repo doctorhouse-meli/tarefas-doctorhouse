@@ -224,29 +224,6 @@ function formatHistoryItem(row) {
   };
 }
 
-function formatChatMessage(row) {
-  return {
-    id: row.id,
-    colaboradorEmail: row.colaborador_email,
-    destinatarioEmail: row.destinatario_email || '',
-    conversaKey: row.conversa_key || '',
-    autorEmail: row.autor_email,
-    autorNome: row.autor_nome || row.autor_email,
-    autorPerfil: row.autor_perfil,
-    dataHora: toDateTime(row.data_hora),
-    mensagem: row.mensagem,
-    sort: row.data_hora ? new Date(row.data_hora).getTime() : 0,
-  };
-}
-
-async function cleanupOldChatMessages() {
-  await query("DELETE FROM chat_mensagens WHERE data_hora < NOW() - INTERVAL '24 hours'");
-}
-
-function makeConversationKey(emailA, emailB) {
-  return [normalizeEmail(emailA), normalizeEmail(emailB)].sort().join('|');
-}
-
 async function addHistory(taskId, authorEmail, action, details = '') {
   await query(
     'INSERT INTO historico (id, task_id, autor_email, acao, detalhes) VALUES ($1, $2, $3, $4, $5)',
@@ -355,19 +332,6 @@ export async function updateUser(userId, userData) {
       await client.query('UPDATE templates_diarios SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
       await client.query('UPDATE comentarios SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
       await client.query('UPDATE historico SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
-      await client.query('UPDATE chat_mensagens SET colaborador_email = $2 WHERE colaborador_email = $1', [oldEmail, newEmail]);
-      await client.query('UPDATE chat_mensagens SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
-      await client.query('UPDATE chat_mensagens SET destinatario_email = $2 WHERE destinatario_email = $1', [oldEmail, newEmail]);
-      await client.query(`
-        UPDATE chat_mensagens
-        SET conversa_key = CASE
-              WHEN LOWER(autor_email) < LOWER(destinatario_email)
-                THEN LOWER(autor_email) || '|' || LOWER(destinatario_email)
-              ELSE LOWER(destinatario_email) || '|' || LOWER(autor_email)
-            END
-        WHERE destinatario_email IS NOT NULL
-          AND (LOWER(autor_email) = LOWER($1) OR LOWER(destinatario_email) = LOWER($1))
-      `, [newEmail]);
     }
 
     await client.query('COMMIT');
@@ -419,6 +383,8 @@ export async function deleteUser(userId, requesterEmail) {
 export async function createTask(taskData) {
   requireFields(taskData, ['workspace', 'titulo', 'prioridade', 'dataPrazo', 'atribuidoPara']);
   await ensureWorkspaceExists(taskData.workspace);
+  const assignedUser = await getUserByEmail(taskData.atribuidoPara);
+  if (!assignedUser) throw new Error('Responsavel nao encontrado.');
   const status = taskData.status || 'Pendente';
   const result = await query(
     `INSERT INTO tarefas
@@ -457,6 +423,8 @@ export async function createEmployeeTask(taskData, userEmail) {
 export async function updateTask(taskId, taskData) {
   requireFields(taskData, ['workspace', 'titulo', 'prioridade', 'dataPrazo', 'status', 'atribuidoPara']);
   await ensureWorkspaceExists(taskData.workspace);
+  const assignedUser = await getUserByEmail(taskData.atribuidoPara);
+  if (!assignedUser) throw new Error('Responsavel nao encontrado.');
   const current = await query('SELECT * FROM tarefas WHERE id = $1', [taskId]);
   if (!current.rowCount) throw new Error('Tarefa nao encontrada.');
   const completedAt = taskData.status === 'Concluida'
@@ -527,7 +495,7 @@ export async function getAdminDashboardData() {
   ]);
   const tasks = tasksResult.rows.map(formatTask);
   const users = usersResult.rows.map(sanitizeUser);
-  const colaboradores = users.filter((user) => user.perfil === 'Colaborador');
+  const colaboradores = users;
   return {
     tasks,
     usuarios: users,
@@ -566,6 +534,8 @@ function buildAdminTodayPanel(tasks, colaboradores) {
 export async function createDailyTemplate(templateData) {
   requireFields(templateData, ['workspace', 'titulo', 'prioridade', 'atribuidoPara']);
   await ensureWorkspaceExists(templateData.workspace);
+  const assignedUser = await getUserByEmail(templateData.atribuidoPara);
+  if (!assignedUser) throw new Error('Responsavel nao encontrado.');
   const result = await query(
     `INSERT INTO templates_diarios
       (id, workspace, titulo, descricao, prioridade, atribuido_para, horario_prazo, dias_semana)
@@ -807,93 +777,6 @@ export async function getTaskHistory(taskId) {
   return result.rows.map(formatHistoryItem);
 }
 
-export async function getChatContacts(userEmail) {
-  requireFields({ userEmail }, ['userEmail']);
-  await cleanupOldChatMessages();
-  const current = await getUserByEmail(userEmail);
-  if (!current) throw new Error('Usuario nao encontrado.');
-
-  const result = await query(`
-    SELECT
-      usuarios.id,
-      usuarios.nome,
-      usuarios.email,
-      usuarios.perfil,
-      usuarios.workspace,
-      MAX(chat_mensagens.data_hora) AS ultima_mensagem
-    FROM usuarios
-    LEFT JOIN chat_mensagens
-      ON chat_mensagens.conversa_key = CASE
-        WHEN LOWER(usuarios.email) < LOWER($1)
-          THEN LOWER(usuarios.email) || '|' || LOWER($1)
-        ELSE LOWER($1) || '|' || LOWER(usuarios.email)
-      END
-    WHERE LOWER(usuarios.email) <> LOWER($1)
-    GROUP BY usuarios.id, usuarios.nome, usuarios.email, usuarios.perfil, usuarios.workspace
-    ORDER BY MAX(chat_mensagens.data_hora) DESC NULLS LAST, usuarios.nome ASC
-  `, [normalizeEmail(userEmail)]);
-  return result.rows.map((row) => ({
-    id: row.id,
-    nome: row.nome,
-    email: row.email,
-    perfil: row.perfil,
-    workspace: row.workspace,
-    ultimaMensagem: toDateTime(row.ultima_mensagem),
-  }));
-}
-
-export async function getChatMessages(otherEmail, userEmail) {
-  requireFields({ otherEmail, userEmail }, ['otherEmail', 'userEmail']);
-  await cleanupOldChatMessages();
-  const current = await getUserByEmail(userEmail);
-  const other = await getUserByEmail(otherEmail);
-  if (!current || !other) throw new Error('Usuario do chat nao encontrado.');
-  const conversationKey = makeConversationKey(userEmail, otherEmail);
-  const result = await query(
-    `SELECT chat_mensagens.*, usuarios.nome AS autor_nome
-     FROM chat_mensagens
-     LEFT JOIN usuarios ON LOWER(usuarios.email) = LOWER(chat_mensagens.autor_email)
-     WHERE conversa_key = $1
-       AND data_hora >= NOW() - INTERVAL '24 hours'
-     ORDER BY chat_mensagens.data_hora ASC`,
-    [conversationKey],
-  );
-  return result.rows.map(formatChatMessage);
-}
-
-export async function sendChatMessage(recipientEmail, message, senderEmail) {
-  requireFields({ recipientEmail, message, senderEmail }, ['recipientEmail', 'message', 'senderEmail']);
-  await cleanupOldChatMessages();
-
-  const sender = await getUserByEmail(senderEmail);
-  if (!sender) throw new Error('Usuario remetente nao encontrado.');
-
-  const recipient = await getUserByEmail(recipientEmail);
-  if (!recipient) throw new Error('Usuario destinatario nao encontrado.');
-  if (normalizeEmail(senderEmail) === normalizeEmail(recipientEmail)) throw new Error('Escolha outra pessoa para conversar.');
-
-  const collaboratorEmail = sender.perfil === 'Colaborador' ? sender.email : recipient.email;
-  const conversationKey = makeConversationKey(sender.email, recipient.email);
-
-  const result = await query(
-    `INSERT INTO chat_mensagens
-      (id, colaborador_email, autor_email, autor_perfil, destinatario_email, conversa_key, mensagem)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING *`,
-    [
-      makeId('MSG'),
-      normalizeEmail(collaboratorEmail),
-      normalizeEmail(senderEmail),
-      sender.perfil,
-      normalizeEmail(recipientEmail),
-      conversationKey,
-      String(message).trim(),
-    ],
-  );
-
-  return formatChatMessage(result.rows[0]);
-}
-
 const rpc = {
   loginUser,
   getAdminDashboardData,
@@ -919,9 +802,6 @@ const rpc = {
   updateChecklistItem,
   deleteChecklistItem,
   getTaskHistory,
-  getChatContacts,
-  getChatMessages,
-  sendChatMessage,
   generateDailyTasks,
 };
 
@@ -950,8 +830,6 @@ const emailArgIndex = {
   addChecklistItem: 2,
   updateChecklistItem: 2,
   deleteChecklistItem: 1,
-  getChatContacts: 0,
-  getChatMessages: 1,
   deleteUser: 1,
 };
 
@@ -964,12 +842,6 @@ function authorizeRpc(functionName, args, req) {
   const index = emailArgIndex[functionName];
   if (index !== undefined && user.perfil !== 'Admin' && normalizeEmail(args[index]) !== normalizeEmail(user.email)) {
     throw new Error('Voce so pode acessar dados do proprio usuario.');
-  }
-  if (functionName === 'sendChatMessage') {
-    const recipientEmail = normalizeEmail(args[0]);
-    const senderEmail = normalizeEmail(args[2]);
-    if (senderEmail !== normalizeEmail(user.email)) throw new Error('Remetente invalido.');
-    if (recipientEmail === normalizeEmail(user.email)) throw new Error('Escolha outra pessoa para conversar.');
   }
   if (functionName === 'deleteUser' && normalizeEmail(args[1]) !== normalizeEmail(user.email)) {
     throw new Error('Solicitante invalido.');
