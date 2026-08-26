@@ -112,7 +112,6 @@ export async function initDb() {
 
     CREATE INDEX IF NOT EXISTS idx_tarefas_atribuido_para ON tarefas(atribuido_para);
     CREATE INDEX IF NOT EXISTS idx_tarefas_prazo ON tarefas(data_prazo);
-    CREATE INDEX IF NOT EXISTS idx_tarefas_origem_template ON tarefas(origem_template_id);
     CREATE INDEX IF NOT EXISTS idx_templates_diarios_email ON templates_diarios(atribuido_para);
     CREATE INDEX IF NOT EXISTS idx_chat_colaborador_data ON chat_mensagens(colaborador_email, data_hora);
   `);
