@@ -719,6 +719,12 @@
     color: #92400e;
   }
 
+  .employee-action-btn.is-request {
+    border: 1px solid #7c3aed;
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    color: #5b21b6;
+  }
+
   .employee-action-btn.is-details,
   .employee-secondary-action {
     border: 1px solid rgb(203 213 225);

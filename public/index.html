@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/styles.css?v=20260826-05">
+    <link rel="stylesheet" href="/styles.css?v=20260828-01">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -180,12 +180,13 @@
         <div id="employeeView" class="employee-shell mx-auto hidden max-w-7xl p-4">
           <div class="employee-hero mb-5">
             <div>
-              <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">Area do colaborador</p>
+              <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">Minhas atividades</p>
               <h2 id="employeeGreeting" class="mt-1 text-2xl font-black text-white">Minhas tarefas</h2>
               <p class="mt-1 text-sm text-slate-300">Priorize, avance e finalize com clareza.</p>
             </div>
             <div class="flex flex-wrap gap-2">
               <button data-modal="employeeTaskModal" class="hero-btn">Nova tarefa</button>
+              <button id="openRequestAdminBtn" type="button" class="hero-btn hidden">Pedir ao admin</button>
               <button id="openEmployeeTemplatesBtn" class="hero-btn">Tarefas diarias</button>
               <button id="openAdminControlBtn" type="button" class="hero-btn hidden">Painel admin</button>
             </div>
@@ -357,6 +358,7 @@
           <input name="senha" type="password" placeholder="Senha" class="input">
           <select name="perfil" required class="input">
             <option>Colaborador</option>
+            <option>Solicitante</option>
             <option>Admin</option>
           </select>
           <select name="workspace" required class="input workspaceSelect"></select>
@@ -384,8 +386,13 @@
 
     <div id="detailsModal" class="modal hidden">
       <div class="modal-panel max-w-4xl">
-        <h2 id="detailsTitle" class="text-lg font-semibold"></h2>
-        <p id="detailsDescription" class="mt-2 text-sm text-slate-600"></p>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 id="detailsTitle" class="text-lg font-semibold"></h2>
+            <p id="detailsDescription" class="mt-2 text-sm text-slate-600"></p>
+          </div>
+          <button id="requestFromDetailsBtn" type="button" class="employee-action-btn is-request hidden">Pedir ao admin</button>
+        </div>
         <div class="mt-4 grid gap-4 lg:grid-cols-3">
           <section class="rounded-lg bg-slate-50 p-3">
             <h3 class="font-black">Checklist</h3>
@@ -414,6 +421,32 @@
       </div>
     </div>
 
+    <div id="requestAdminModal" class="modal hidden">
+      <form id="requestAdminForm" class="modal-panel">
+        <h2 class="text-lg font-semibold">Pedido para admin</h2>
+        <p class="mt-1 text-sm text-slate-500">Use quando precisa que um admin libere, resolva ou faca algo para voce continuar.</p>
+        <input name="taskId" type="hidden">
+        <div class="mt-4 grid gap-3">
+          <select name="adminEmail" required class="input"></select>
+          <input name="titulo" required placeholder="Titulo do pedido" class="input">
+          <textarea name="descricao" required placeholder="Explique o que precisa do admin" class="input"></textarea>
+          <select name="prioridade" required class="input">
+            <option>Baixa</option><option selected>Media</option><option>Alta</option><option>Urgente</option>
+          </select>
+          <input name="dataPrazo" required type="date" class="input">
+          <div class="time-select" data-time-field="horarioPrazo">
+            <input name="horarioPrazo" type="hidden">
+            <select class="input" data-time-hour aria-label="Hora opcional"></select>
+            <select class="input" data-time-minute aria-label="Minuto opcional"></select>
+          </div>
+        </div>
+        <div class="mt-5 flex justify-end gap-2">
+          <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
+          <button class="rounded-md bg-slate-900 px-3 py-2 text-white">Enviar pedido</button>
+        </div>
+      </form>
+    </div>
+
     <div id="notificationPromptModal" class="modal hidden">
       <div class="modal-panel max-w-md">
         <h2 class="text-xl font-black">Receber avisos de novas tarefas?</h2>
@@ -426,7 +459,7 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260826-05"></script>
+    <script src="/app.js?v=20260828-01"></script>
   </body>
 </html>
 

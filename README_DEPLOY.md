@@ -99,10 +99,12 @@ O admin pode:
 - Alterar nome.
 - Alterar e-mail/login.
 - Alterar senha.
-- Alterar perfil `Admin` ou `Colaborador`.
+- Alterar perfil `Admin`, `Colaborador` ou `Solicitante`.
 - Alterar workspace.
 
 Ao alterar o e-mail/login, o sistema tambem atualiza as tarefas, modelos diarios, comentarios e historico vinculados ao e-mail antigo.
+
+Perfil `Solicitante`: funciona como colaborador, mas tambem pode enviar um pedido/tarefa para um admin quando precisar de liberacao ou ajuda para concluir uma tarefa.
 
 ## Migracao dos dados antigos
 

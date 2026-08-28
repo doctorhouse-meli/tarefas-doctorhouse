@@ -70,6 +70,11 @@ function normalizeStatus(input) {
   return ['Pendente', 'Em Andamento', 'Concluida'].includes(text) ? text : 'Pendente';
 }
 
+function normalizeProfile(input) {
+  const text = String(input || 'Colaborador').trim();
+  return ['Admin', 'Colaborador', 'Solicitante'].includes(text) ? text : 'Colaborador';
+}
+
 function normalizeType(input) {
   const text = String(input || 'Manual').trim();
   return ['Manual', 'Diaria'].includes(text) ? text : 'Manual';
@@ -157,7 +162,7 @@ async function importUsers(users) {
         value(row, ['Nome', 'nome'], email),
         email,
         String(value(row, ['Senha', 'senha'], '123456')),
-        value(row, ['Perfil (Admin/Colaborador)', 'Perfil', 'perfil'], 'Colaborador') === 'Admin' ? 'Admin' : 'Colaborador',
+        normalizeProfile(value(row, ['Perfil (Admin/Colaborador)', 'Perfil', 'perfil'], 'Colaborador')),
         workspace,
       ],
     );

@@ -33,7 +33,7 @@ export async function initDb() {
       nome TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       senha TEXT NOT NULL,
-      perfil TEXT NOT NULL CHECK (perfil IN ('Admin', 'Colaborador')),
+      perfil TEXT NOT NULL CHECK (perfil IN ('Admin', 'Colaborador', 'Solicitante')),
       workspace TEXT NOT NULL REFERENCES workspaces(nome)
     );
 
@@ -108,6 +108,8 @@ export async function initDb() {
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS horario_prazo TIME");
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS origem_template_id TEXT");
   await query("ALTER TABLE templates_diarios ADD COLUMN IF NOT EXISTS horario_prazo TIME");
+  await query("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check");
+  await query("ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check CHECK (perfil IN ('Admin', 'Colaborador', 'Solicitante'))");
   await query(`
     CREATE TABLE IF NOT EXISTS geracoes_diarias (
       template_id TEXT NOT NULL,

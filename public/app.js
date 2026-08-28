@@ -9,6 +9,7 @@ let currentUser = null;
   let employeePendingFilter = 'today';
   let currentEmployeeTasks = [];
   let knownEmployeeTaskIds = new Set();
+  let requestAdmins = [];
   let adminDefaultFilterApplied = false;
   let audioContext = null;
   let originalPageTitle = document.title || 'Dashboard de Tarefas';
@@ -36,10 +37,13 @@ let currentUser = null;
     $('#checklistForm').addEventListener('submit', handleAddChecklistItem);
     $('#employeeTemplateForm').addEventListener('submit', handleCreateEmployeeTemplate);
     $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
+    $('#requestAdminForm').addEventListener('submit', handleCreateAdminRequest);
     $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
     $('#employeeSummary').addEventListener('click', handleEmployeeFilterClick);
     $('#backToMyTasksBtn').addEventListener('click', () => openMyTasks(false));
     $('#openAdminControlBtn').addEventListener('click', openAdminControl);
+    $('#openRequestAdminBtn').addEventListener('click', () => openAdminRequest());
+    $('#requestFromDetailsBtn').addEventListener('click', () => openAdminRequest(selectedTask));
     $('#openEmployeeTemplatesBtn').addEventListener('click', async () => {
       await loadEmployeeTemplates();
       openModal('employeeTemplatesListModal');
@@ -487,6 +491,7 @@ let currentUser = null;
     $('#employeeView').classList.remove('hidden');
     $('#adminView').classList.add('hidden');
     $('#openAdminControlBtn').classList.toggle('hidden', currentUser?.perfil !== 'Admin');
+    $('#openRequestAdminBtn').classList.toggle('hidden', !canRequestAdmin());
     const tasks = prepareEmployeeTasks(await callServer('getEmployeeTasks', currentUser.email));
     currentEmployeeTasks = tasks;
     notifyNewEmployeeTasks(tasks, isInitialLoad);
@@ -637,7 +642,7 @@ let currentUser = null;
 
     const pending = getPendingTasks(tasks).length;
     const doing = getDoingTasks(tasks).length;
-    const overdue = tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length;
+    const overdue = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length;
     const next = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length;
     const done = getDoneTasks(tasks).length;
 
@@ -674,7 +679,7 @@ let currentUser = null;
     const counts = {
       pending: getPendingTasks(tasks).length,
       doing: getDoingTasks(tasks).length,
-      overdue: tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue').length,
+      overdue: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length,
       next: tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length,
       done: tasks.filter((task) => task.status === 'Concluida').length,
     };
@@ -711,17 +716,17 @@ let currentUser = null;
     if (employeeTaskFilter === 'done') return sortOldestFirst(getDoneTasks(tasks));
     if (employeeTaskFilter === 'doing') return sortOldestFirst(getDoingTasks(tasks));
     if (employeeTaskFilter === 'pending') return sortOldestFirst(getPendingTasksByPendingFilter(tasks));
-    if (employeeTaskFilter === 'overdue') return sortOldestFirst(tasks.filter((task) => task.status === 'Pendente' && getTaskDueKey(task) === 'overdue'));
+    if (employeeTaskFilter === 'overdue') return sortOldestFirst(tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue'));
     if (employeeTaskFilter === 'next') return sortOldestFirst(getTasksByDueKey(tasks, 'next'));
     return sortEmployeeTasks(getDefaultEmployeeVisibleTasks(tasks));
   }
 
   function getTasksByPendingFilter(tasks, filterKey) {
-    return getPendingTasks(tasks).filter((task) => {
+    return getOpenTasks(tasks).filter((task) => {
       const dueKey = getTaskDueKey(task);
       if (filterKey === 'overdue') return dueKey === 'overdue';
       if (filterKey === 'next') return dueKey === 'next';
-      return dueKey === 'today';
+      return dueKey === 'today' || dueKey === 'overdue';
     });
   }
 
@@ -759,6 +764,9 @@ let currentUser = null;
     $$('.statusBtn').forEach((button) => {
       button.addEventListener('click', () => changeStatus(button.dataset.taskId, button.dataset.status));
     });
+    $$('.requestAdminBtn').forEach((button) => {
+      button.addEventListener('click', () => openAdminRequest(currentEmployeeTasks.find((task) => task.id === button.dataset.taskId)));
+    });
     $$('.pending-subfilter-btn').forEach((button) => {
       button.addEventListener('click', () => {
         employeePendingFilter = button.dataset.pendingFilter || 'today';
@@ -774,7 +782,7 @@ let currentUser = null;
       next: getTasksByPendingFilter(currentEmployeeTasks, 'next').length,
     };
     const filters = [
-      ['today', 'Hoje'],
+      ['today', 'Hoje + atrasadas'],
       ['overdue', 'Atrasadas'],
       ['next', 'Proximos dias'],
     ];
@@ -823,16 +831,22 @@ let currentUser = null;
   }
 
   function renderEmployeeActionButtons(task) {
+    const requestButton = canRequestAdmin() && task.status !== 'Concluida'
+      ? `<button class="requestAdminBtn employee-action-btn is-request" data-task-id="${escapeHtml(task.id)}">Pedir ao admin</button>`
+      : '';
+
     if (task.status === 'Pendente') {
       return `
         <button class="statusBtn employee-action-btn is-start" data-task-id="${escapeHtml(task.id)}" data-status="Em Andamento">Comecar</button>
         <button class="statusBtn employee-action-btn is-finish" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
+        ${requestButton}
       `;
     }
 
     if (task.status === 'Em Andamento') {
       return `
         <button class="statusBtn employee-action-btn is-finish" data-task-id="${escapeHtml(task.id)}" data-status="Concluida">Concluir</button>
+        ${requestButton}
       `;
     }
 
@@ -891,12 +905,54 @@ let currentUser = null;
     selectedTask = task;
     $('#detailsTitle').textContent = task.titulo;
     $('#detailsDescription').textContent = task.descricao || 'Sem descricao.';
+    $('#requestFromDetailsBtn').classList.toggle('hidden', !canRequestAdmin() || task.status === 'Concluida');
     openModal('detailsModal');
     await Promise.all([
       loadComments(task.id),
       loadChecklist(task.id),
       loadHistory(task.id),
     ]);
+  }
+
+  function canRequestAdmin() {
+    return currentUser?.perfil === 'Solicitante';
+  }
+
+  async function loadRequestAdmins() {
+    if (!canRequestAdmin()) return [];
+    if (!requestAdmins.length) requestAdmins = await callServer('getRequestAdmins', currentUser.email);
+    return requestAdmins;
+  }
+
+  async function openAdminRequest(task = null) {
+    if (!canRequestAdmin()) {
+      showToast('Seu perfil nao permite enviar pedidos ao admin.');
+      return;
+    }
+
+    const admins = await loadRequestAdmins();
+    if (!admins.length) {
+      showToast('Nenhum admin cadastrado para receber pedidos.');
+      return;
+    }
+
+    const form = $('#requestAdminForm');
+    form.reset();
+    form.elements.taskId.value = task?.id || '';
+    form.elements.adminEmail.innerHTML = admins
+      .map((admin) => `<option value="${escapeHtml(admin.email)}">${escapeHtml(admin.nome)} (${escapeHtml(admin.email)})</option>`)
+      .join('');
+    form.elements.titulo.value = task ? task.titulo : '';
+    form.elements.prioridade.value = task?.prioridade || 'Media';
+    form.elements.dataPrazo.value = toDateKey(new Date());
+    setTimeField(form, 'horarioPrazo', '');
+    if (task) {
+      form.elements.descricao.placeholder = 'Explique o que precisa para concluir esta tarefa';
+    } else {
+      form.elements.descricao.placeholder = 'Explique o que precisa do admin';
+    }
+    closeModals();
+    openModal('requestAdminModal');
   }
 
   async function loadComments(taskId) {
@@ -984,6 +1040,17 @@ let currentUser = null;
     event.target.reset();
     closeModals();
     showToast('Tarefa criada.');
+    employeeTaskFilter = 'pending';
+    employeePendingFilter = 'today';
+    await loadEmployee(false);
+  }
+
+  async function handleCreateAdminRequest(event) {
+    event.preventDefault();
+    await callServer('createAdminRequest', formToObject(event.target), currentUser.email);
+    event.target.reset();
+    closeModals();
+    showToast('Pedido enviado ao admin.');
     employeeTaskFilter = 'pending';
     employeePendingFilter = 'today';
     await loadEmployee(false);
