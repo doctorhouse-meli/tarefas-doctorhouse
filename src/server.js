@@ -443,7 +443,14 @@ export async function createEmployeeTask(taskData, userEmail) {
 export async function getRequestAdmins(userEmail) {
   const user = await getUserByEmail(userEmail);
   if (!user) throw new Error('Usuario nao encontrado.');
-  const result = await query("SELECT * FROM usuarios WHERE perfil = 'Admin' ORDER BY nome");
+  const result = await query(`
+    SELECT *
+    FROM usuarios
+    WHERE perfil = 'Admin'
+    ORDER BY
+      CASE WHEN LOWER(nome) LIKE 'joab%' THEN 0 ELSE 1 END,
+      nome
+  `);
   return result.rows.map(sanitizeUser);
 }
 
