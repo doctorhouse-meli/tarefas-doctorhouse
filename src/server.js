@@ -173,8 +173,11 @@ function formatTask(row) {
     horarioPrazo: toTimeKey(row.horario_prazo),
     status: row.status,
     atribuidoPara: row.atribuido_para,
+    solicitadoPor: row.solicitado_por || '',
+    tarefaOrigemId: row.tarefa_origem_id || '',
     tipo: row.tipo,
     origemTemplateId: row.origem_template_id || '',
+    obsConclusao: row.obs_conclusao || '',
     dataCriacao: toDateTime(row.data_criacao),
     dataCriacaoSort: createdSort,
     dataConclusao: toDateTime(row.data_conclusao),
@@ -249,6 +252,15 @@ async function getUserByEmail(email) {
 
 async function getTaskForUser(taskId, userEmail) {
   const result = await query('SELECT * FROM tarefas WHERE id = $1 AND atribuido_para = $2', [taskId, normalizeEmail(userEmail)]);
+  if (!result.rowCount) throw new Error('Tarefa nao encontrada para este usuario.');
+  return result.rows[0];
+}
+
+async function getTaskForParticipant(taskId, userEmail) {
+  const result = await query(
+    'SELECT * FROM tarefas WHERE id = $1 AND (atribuido_para = $2 OR solicitado_por = $2)',
+    [taskId, normalizeEmail(userEmail)],
+  );
   if (!result.rowCount) throw new Error('Tarefa nao encontrada para este usuario.');
   return result.rows[0];
 }
@@ -394,8 +406,8 @@ export async function createTask(taskData) {
   const status = taskData.status || 'Pendente';
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, data_conclusao)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, 'Manual', $10)
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, solicitado_por, tarefa_origem_id, tipo, data_conclusao)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, $10, $11, 'Manual', $12)
      RETURNING *`,
     [
       makeId('TSK'),
@@ -407,6 +419,8 @@ export async function createTask(taskData) {
       normalizeTime(taskData.horarioPrazo),
       status,
       normalizeEmail(taskData.atribuidoPara),
+      taskData.solicitadoPor ? normalizeEmail(taskData.solicitadoPor) : null,
+      taskData.tarefaOrigemId || null,
       status === 'Concluida' ? new Date() : null,
     ],
   );
@@ -465,6 +479,8 @@ export async function createAdminRequest(requestData, userEmail) {
     dataPrazo: requestData.dataPrazo,
     horarioPrazo: requestData.horarioPrazo,
     atribuidoPara: admin.email,
+    solicitadoPor: requester.email,
+    tarefaOrigemId: sourceTask?.id || '',
     status: 'Pendente',
     autorEmail: requester.email,
   });
@@ -525,17 +541,20 @@ export async function deleteTask(taskId) {
   return { deleted: true };
 }
 
-export async function updateTaskStatus(taskId, newStatus, userEmail) {
+export async function updateTaskStatus(taskId, newStatus, userEmail, completionNote = '') {
   await getTaskForUser(taskId, userEmail);
+  const note = newStatus === 'Concluida' ? String(completionNote || '').trim() : '';
   const result = await query(
     `UPDATE tarefas
      SET status = $2,
-         data_conclusao = CASE WHEN $2 = 'Concluida' THEN COALESCE(data_conclusao, NOW()) ELSE NULL END
+         data_conclusao = CASE WHEN $2 = 'Concluida' THEN COALESCE(data_conclusao, NOW()) ELSE NULL END,
+         obs_conclusao = CASE WHEN $2 = 'Concluida' THEN $3 ELSE '' END
      WHERE id = $1
      RETURNING *`,
-    [taskId, newStatus],
+    [taskId, newStatus, note],
   );
   await addHistory(taskId, userEmail, 'Alterou status', newStatus);
+  if (note) await addHistory(taskId, userEmail, 'Observacao ao concluir', note);
   return formatTask(result.rows[0]);
 }
 
@@ -543,6 +562,18 @@ export async function getEmployeeTasks(userEmail) {
   await generateDailyTasks();
   const result = await query(
     'SELECT * FROM tarefas WHERE atribuido_para = $1 ORDER BY data_prazo ASC, horario_prazo ASC NULLS LAST, data_criacao ASC',
+    [normalizeEmail(userEmail)],
+  );
+  return result.rows.map(formatTask);
+}
+
+export async function getMyAdminRequests(userEmail) {
+  const user = await getUserByEmail(userEmail);
+  if (!user) throw new Error('Usuario nao encontrado.');
+  const result = await query(
+    `SELECT * FROM tarefas
+     WHERE solicitado_por = $1
+     ORDER BY data_criacao DESC, data_prazo ASC, horario_prazo ASC NULLS LAST`,
     [normalizeEmail(userEmail)],
   );
   return result.rows.map(formatTask);
@@ -761,7 +792,7 @@ export async function generateDailyTasks() {
 }
 
 export async function addComment(taskId, commentText, userEmail) {
-  await getTaskForUser(taskId, userEmail);
+  await getTaskForParticipant(taskId, userEmail);
   requireFields({ commentText }, ['commentText']);
   const result = await query(
     `INSERT INTO comentarios (id, task_id, autor_email, mensagem)
@@ -854,6 +885,7 @@ const rpc = {
   updateUser,
   deleteUser,
   getEmployeeTasks,
+  getMyAdminRequests,
   updateTaskStatus,
   createDailyTemplate,
   getEmployeeDailyTemplates,
@@ -885,6 +917,7 @@ const adminOnly = new Set([
 
 const emailArgIndex = {
   getEmployeeTasks: 0,
+  getMyAdminRequests: 0,
   getRequestAdmins: 0,
   createAdminRequest: 1,
   getEmployeeDailyTemplates: 0,

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/styles.css?v=20260828-01">
+    <link rel="stylesheet" href="/styles.css?v=20260828-04">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -193,6 +193,7 @@
           </div>
 
           <div id="employeeSummary" class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5"></div>
+          <div id="employeeRequestsPanel" class="mb-5 hidden"></div>
           <div id="employeeTaskFilters" class="hidden"></div>
           <div id="employeeTasks" class="grid gap-3 xl:grid-cols-4"></div>
         </div>
@@ -447,6 +448,19 @@
       </form>
     </div>
 
+    <div id="completeTaskModal" class="modal hidden">
+      <form id="completeTaskForm" class="modal-panel max-w-md">
+        <h2 class="text-lg font-semibold">Concluir tarefa</h2>
+        <p class="mt-1 text-sm text-slate-500">Se quiser, deixe uma observacao para o admin ver no painel.</p>
+        <input name="taskId" type="hidden">
+        <textarea name="obsConclusao" placeholder="Observacao opcional" class="input mt-4"></textarea>
+        <div class="mt-5 flex justify-end gap-2">
+          <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
+          <button class="rounded-md bg-emerald-600 px-3 py-2 font-bold text-white">Concluir</button>
+        </div>
+      </form>
+    </div>
+
     <div id="notificationPromptModal" class="modal hidden">
       <div class="modal-panel max-w-md">
         <h2 class="text-xl font-black">Receber avisos de novas tarefas?</h2>
@@ -459,7 +473,7 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260828-01"></script>
+    <script src="/app.js?v=20260828-04"></script>
   </body>
 </html>
 

@@ -8,7 +8,12 @@ let currentUser = null;
   let employeeTaskFilter = 'pending';
   let employeePendingFilter = 'today';
   let currentEmployeeTasks = [];
+  let currentEmployeeRequests = [];
   let knownEmployeeTaskIds = new Set();
+  let knownRequestStatuses = new Map();
+  let requestStatusBootstrapped = false;
+  let knownAdminCompletionObs = new Set();
+  let adminCompletionObsBootstrapped = false;
   let requestAdmins = [];
   let adminDefaultFilterApplied = false;
   let audioContext = null;
@@ -17,6 +22,7 @@ let currentUser = null;
   let titleAlertTimer = null;
   let unreadTaskNotifications = 0;
   const SESSION_LOGIN_KEY = 'taskDashboardSessionLogin';
+  const SESSION_COOKIE_KEY = 'taskDashboardSessionLoginCookie';
   const NOTIFICATION_PROMPT_KEY = 'taskDashboardNotificationPromptHandledV2';
 
   const $ = (selector) => document.querySelector(selector);
@@ -38,6 +44,7 @@ let currentUser = null;
     $('#employeeTemplateForm').addEventListener('submit', handleCreateEmployeeTemplate);
     $('#employeeTaskForm').addEventListener('submit', handleCreateEmployeeTask);
     $('#requestAdminForm').addEventListener('submit', handleCreateAdminRequest);
+    $('#completeTaskForm').addEventListener('submit', handleCompleteTaskWithNote);
     $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
     $('#employeeSummary').addEventListener('click', handleEmployeeFilterClick);
     $('#backToMyTasksBtn').addEventListener('click', () => openMyTasks(false));
@@ -118,7 +125,7 @@ let currentUser = null;
   function logout() {
     stopAdminPolling();
     stopEmployeePolling();
-    sessionStorage.removeItem(SESSION_LOGIN_KEY);
+    clearSessionLogin();
     currentUser = null;
     authToken = '';
     $('#authLoadingView').classList.add('hidden');
@@ -151,7 +158,7 @@ let currentUser = null;
       authToken = currentUser.token || '';
       await enterDashboard();
     } catch (error) {
-      sessionStorage.removeItem(SESSION_LOGIN_KEY);
+      clearSessionLogin();
       showLogin();
       showToast('Sessao expirada. Entre novamente.');
     }
@@ -184,26 +191,51 @@ let currentUser = null;
   }
 
   function saveSessionLogin(email, senha) {
-    sessionStorage.setItem(SESSION_LOGIN_KEY, JSON.stringify({
+    const login = {
       email,
       senha,
       savedAt: new Date().toISOString(),
-    }));
+    };
+    const serialized = JSON.stringify(login);
+    sessionStorage.setItem(SESSION_LOGIN_KEY, serialized);
+    setSessionCookie(SESSION_COOKIE_KEY, serialized);
   }
 
   function getSessionLogin() {
     try {
-      return JSON.parse(sessionStorage.getItem(SESSION_LOGIN_KEY));
+      const raw = sessionStorage.getItem(SESSION_LOGIN_KEY) || getCookie(SESSION_COOKIE_KEY);
+      if (!raw) return null;
+      sessionStorage.setItem(SESSION_LOGIN_KEY, raw);
+      return JSON.parse(raw);
     } catch (error) {
-      sessionStorage.removeItem(SESSION_LOGIN_KEY);
+      clearSessionLogin();
       return null;
     }
+  }
+
+  function clearSessionLogin() {
+    sessionStorage.removeItem(SESSION_LOGIN_KEY);
+    document.cookie = `${SESSION_COOKIE_KEY}=; path=/; SameSite=Lax; max-age=0`;
+  }
+
+  function setSessionCookie(name, value) {
+    document.cookie = `${name}=${encodeURIComponent(value)}; path=/; SameSite=Lax`;
+  }
+
+  function getCookie(name) {
+    const prefix = `${name}=`;
+    const cookie = document.cookie
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(prefix));
+    return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : '';
   }
 
   async function loadAdmin() {
     $('#adminView').classList.remove('hidden');
     $('#employeeView').classList.add('hidden');
     adminData = await callServer('getAdminDashboardData');
+    notifyAdminCompletionNotes(adminData.tasks || []);
     renderAdminStats();
     renderAdminTodayPanel();
     renderAdminSelects();
@@ -249,6 +281,8 @@ let currentUser = null;
       clearInterval(adminPollTimer);
       adminPollTimer = null;
     }
+    knownAdminCompletionObs = new Set();
+    adminCompletionObsBootstrapped = false;
   }
 
   function renderAdminStats() {
@@ -282,7 +316,7 @@ let currentUser = null;
     return `
       <div class="admin-mini-card">
         <p class="text-sm font-black text-slate-900">${escapeHtml(task.titulo)}</p>
-        <p class="mt-1 text-xs text-slate-500">${escapeHtml(task.atribuidoPara)} | ${escapeHtml(formatTaskSchedule(task))}</p>
+        <p class="mt-1 text-xs text-slate-500">${escapeHtml(getUserLabelByEmail(task.atribuidoPara))} | ${escapeHtml(formatTaskSchedule(task))}</p>
       </div>
     `;
   }
@@ -294,7 +328,7 @@ let currentUser = null;
     const responsaveis = adminData.usuarios || [];
 
     const employeeOptions = ['<option value="">Todos</option>']
-      .concat(responsaveis.map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(user.nome)} - ${escapeHtml(user.perfil)} (${escapeHtml(user.email)})</option>`))
+      .concat(responsaveis.map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(formatUserOptionLabel(user))}</option>`))
       .join('');
     $('#filterEmployee').innerHTML = employeeOptions;
     setSelectValueIfExists($('#filterEmployee'), selectedEmployee);
@@ -308,7 +342,7 @@ let currentUser = null;
 
     $$('.employeeSelect').forEach((select) => {
       select.innerHTML = responsaveis
-        .map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(user.nome)} - ${escapeHtml(user.perfil)} (${escapeHtml(user.email)})</option>`)
+        .map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(formatUserOptionLabel(user))}</option>`)
         .join('');
     });
 
@@ -324,6 +358,15 @@ let currentUser = null;
     if (Array.from(select.options).some((option) => option.value === value || option.textContent === value)) {
       select.value = value;
     }
+  }
+
+  function formatUserOptionLabel(user) {
+    return `${user.nome || user.email} - ${user.perfil || 'Usuario'}`;
+  }
+
+  function getUserLabelByEmail(email) {
+    const user = (adminData.usuarios || []).find((item) => normalizeEmailClient(item.email) === normalizeEmailClient(email));
+    return user ? user.nome : email;
   }
 
   function renderAdminTasks() {
@@ -342,8 +385,12 @@ let currentUser = null;
         <td class="px-4 py-3">
           <div class="font-black text-slate-900">${escapeHtml(task.titulo)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div>
+          ${task.obsConclusao ? `<div class="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Obs ao concluir: ${escapeHtml(task.obsConclusao)}</div>` : ''}
         </td>
-        <td class="px-4 py-3">${escapeHtml(task.atribuidoPara)}</td>
+        <td class="px-4 py-3">
+          <div class="font-bold text-slate-800">${escapeHtml(getUserLabelByEmail(task.atribuidoPara))}</div>
+          <div class="text-xs text-slate-400">${escapeHtml(task.atribuidoPara || '')}</div>
+        </td>
         <td class="px-4 py-3">${priorityBadge(task.prioridade)}</td>
         <td class="px-4 py-3">${escapeHtml(formatTaskSchedule(task))}</td>
         <td class="px-4 py-3">${statusBadge(task.status)}</td>
@@ -494,8 +541,11 @@ let currentUser = null;
     $('#openRequestAdminBtn').classList.toggle('hidden', !canRequestAdmin());
     const tasks = prepareEmployeeTasks(await callServer('getEmployeeTasks', currentUser.email));
     currentEmployeeTasks = tasks;
+    currentEmployeeRequests = canRequestAdmin() ? await callServer('getMyAdminRequests', currentUser.email) : [];
     notifyNewEmployeeTasks(tasks, isInitialLoad);
+    notifyRequestStatusChanges(currentEmployeeRequests, isInitialLoad);
     renderEmployeeSummary(tasks);
+    renderEmployeeRequests(currentEmployeeRequests);
     renderEmployeeTasks(applyEmployeeTaskFilter(tasks));
   }
 
@@ -675,6 +725,49 @@ let currentUser = null;
     `;
   }
 
+  function renderEmployeeRequests(requests) {
+    const panel = $('#employeeRequestsPanel');
+    if (!canRequestAdmin()) {
+      panel.classList.add('hidden');
+      panel.innerHTML = '';
+      return;
+    }
+
+    const visible = [...requests].slice(0, 6);
+    panel.classList.remove('hidden');
+    panel.innerHTML = `
+      <section class="employee-requests-panel">
+        <div class="employee-requests-header">
+          <div>
+            <h2>Pedidos ao admin</h2>
+            <p>${requests.length} pedido${requests.length === 1 ? '' : 's'} enviado${requests.length === 1 ? '' : 's'}</p>
+          </div>
+          <button type="button" class="employee-secondary-action" id="newRequestFromPanelBtn">Novo pedido</button>
+        </div>
+        <div class="employee-request-list">
+          ${visible.map(renderEmployeeRequestItem).join('') || '<p class="rounded-md bg-white p-3 text-sm font-medium text-slate-500">Nenhum pedido enviado ainda.</p>'}
+        </div>
+      </section>
+    `;
+
+    $('#newRequestFromPanelBtn').addEventListener('click', () => openAdminRequest());
+    $$('.requestDetailsBtn').forEach((button) => {
+      button.addEventListener('click', () => openTaskDetails(currentEmployeeRequests.find((task) => task.id === button.dataset.taskId)));
+    });
+  }
+
+  function renderEmployeeRequestItem(task) {
+    return `
+      <button type="button" class="requestDetailsBtn employee-request-item is-${task.status === 'Concluida' ? 'done' : task.status === 'Em Andamento' ? 'progress' : 'pending'}" data-task-id="${escapeHtml(task.id)}">
+        <span class="min-w-0">
+          <strong>${escapeHtml(task.titulo)}</strong>
+          <small>${escapeHtml(formatTaskSchedule(task))}</small>
+        </span>
+        ${statusBadge(task.status)}
+      </button>
+    `;
+  }
+
   function renderEmployeeTaskFilters(tasks) {
     const counts = {
       pending: getPendingTasks(tasks).length,
@@ -762,7 +855,13 @@ let currentUser = null;
       button.addEventListener('click', () => openTaskDetails(tasks.find((task) => task.id === button.dataset.taskId)));
     });
     $$('.statusBtn').forEach((button) => {
-      button.addEventListener('click', () => changeStatus(button.dataset.taskId, button.dataset.status));
+      button.addEventListener('click', () => {
+        if (button.dataset.status === 'Concluida') {
+          openCompleteTaskModal(button.dataset.taskId);
+          return;
+        }
+        changeStatus(button.dataset.taskId, button.dataset.status);
+      });
     });
     $$('.requestAdminBtn').forEach((button) => {
       button.addEventListener('click', () => openAdminRequest(currentEmployeeTasks.find((task) => task.id === button.dataset.taskId)));
@@ -895,8 +994,23 @@ let currentUser = null;
     return 2;
   }
 
-  async function changeStatus(taskId, status) {
-    await callServer('updateTaskStatus', taskId, status, currentUser.email);
+  function openCompleteTaskModal(taskId) {
+    const form = $('#completeTaskForm');
+    form.reset();
+    form.elements.taskId.value = taskId;
+    openModal('completeTaskModal');
+  }
+
+  async function handleCompleteTaskWithNote(event) {
+    event.preventDefault();
+    const form = event.target;
+    await changeStatus(form.elements.taskId.value, 'Concluida', form.elements.obsConclusao.value);
+    form.reset();
+    closeModals();
+  }
+
+  async function changeStatus(taskId, status, completionNote = '') {
+    await callServer('updateTaskStatus', taskId, status, currentUser.email, completionNote);
     showToast('Status atualizado.');
     await loadEmployee(false);
   }
@@ -905,7 +1019,8 @@ let currentUser = null;
     selectedTask = task;
     $('#detailsTitle').textContent = task.titulo;
     $('#detailsDescription').textContent = task.descricao || 'Sem descricao.';
-    $('#requestFromDetailsBtn').classList.toggle('hidden', !canRequestAdmin() || task.status === 'Concluida');
+    const isOwnAssignedTask = normalizeEmailClient(task.atribuidoPara) === normalizeEmailClient(currentUser.email);
+    $('#requestFromDetailsBtn').classList.toggle('hidden', !canRequestAdmin() || !isOwnAssignedTask || task.status === 'Concluida');
     openModal('detailsModal');
     await Promise.all([
       loadComments(task.id),
@@ -940,7 +1055,7 @@ let currentUser = null;
     form.reset();
     form.elements.taskId.value = task?.id || '';
     form.elements.adminEmail.innerHTML = admins
-      .map((admin) => `<option value="${escapeHtml(admin.email)}">${escapeHtml(admin.nome)} (${escapeHtml(admin.email)})</option>`)
+      .map((admin) => `<option value="${escapeHtml(admin.email)}">${escapeHtml(admin.nome)}</option>`)
       .join('');
     form.elements.titulo.value = task ? task.titulo : '';
     form.elements.prioridade.value = task?.prioridade || 'Media';
@@ -1209,7 +1324,7 @@ let currentUser = null;
   function startEmployeePolling() {
     stopEmployeePolling();
     employeePollTimer = setInterval(async () => {
-      if (!currentUser || currentUser.perfil !== 'Colaborador') return;
+      if (!currentUser || $('#employeeView').classList.contains('hidden')) return;
       try {
         await loadEmployee(false);
       } catch (error) {
@@ -1224,6 +1339,8 @@ let currentUser = null;
       employeePollTimer = null;
     }
     knownEmployeeTaskIds = new Set();
+    knownRequestStatuses = new Map();
+    requestStatusBootstrapped = false;
   }
 
   function notifyNewEmployeeTasks(tasks, isInitialLoad) {
@@ -1242,6 +1359,52 @@ let currentUser = null;
       showTaskAlert('Nova tarefa recebida', task.titulo);
       playNotificationSound();
       showBrowserNotification(task);
+    });
+  }
+
+  function notifyRequestStatusChanges(requests, isInitialLoad) {
+    if (!canRequestAdmin()) return;
+    const activeStatuses = new Map(requests.map((task) => [task.id, task.status]));
+
+    if (isInitialLoad || !requestStatusBootstrapped) {
+      knownRequestStatuses = activeStatuses;
+      requestStatusBootstrapped = true;
+      return;
+    }
+
+    requests.forEach((task) => {
+      const oldStatus = knownRequestStatuses.get(task.id);
+      if (oldStatus && oldStatus !== task.status) {
+        const message = `${task.titulo} agora esta ${task.status}.`;
+        startTitleAlert('Pedido atualizado!');
+        showTaskAlert('Pedido atualizado pelo admin', message);
+        playNotificationSound();
+        showBrowserStatusNotification('Pedido atualizado pelo admin', message, `pedido-${task.id}-${task.status}`);
+      }
+      knownRequestStatuses.set(task.id, task.status);
+    });
+  }
+
+  function notifyAdminCompletionNotes(tasks) {
+    if (!currentUser || currentUser.perfil !== 'Admin') return;
+    const notedTasks = tasks.filter((task) => task.obsConclusao);
+    const currentKeys = new Set(notedTasks.map((task) => `${task.id}:${task.obsConclusao}`));
+
+    if (!adminCompletionObsBootstrapped) {
+      knownAdminCompletionObs = currentKeys;
+      adminCompletionObsBootstrapped = true;
+      return;
+    }
+
+    notedTasks.forEach((task) => {
+      const key = `${task.id}:${task.obsConclusao}`;
+      if (knownAdminCompletionObs.has(key)) return;
+      knownAdminCompletionObs.add(key);
+      const message = `${task.titulo}: ${task.obsConclusao}`;
+      startTitleAlert('Obs de conclusao!');
+      showTaskAlert('Observacao ao concluir tarefa', message);
+      playNotificationSound();
+      showBrowserStatusNotification('Observacao ao concluir tarefa', message, `obs-${task.id}`);
     });
   }
 
@@ -1356,6 +1519,11 @@ let currentUser = null;
       body: `${task.titulo} - Prazo: ${formatTaskSchedule(task)}`,
       tag: task.id,
     });
+  }
+
+  function showBrowserStatusNotification(title, body, tag) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    new Notification(title, { body, tag });
   }
 
   function unlockNotificationSound() {

@@ -106,6 +106,8 @@ Ao alterar o e-mail/login, o sistema tambem atualiza as tarefas, modelos diarios
 
 Perfil `Solicitante`: funciona como colaborador, mas tambem pode enviar um pedido/tarefa para um admin quando precisar de liberacao ou ajuda para concluir uma tarefa.
 
+O usuario inicial `admin@empresa.com` so e criado quando o banco ainda nao tem usuarios. Se voce ja tiver outro admin cadastrado, o sistema remove automaticamente esse usuario padrao quando ele ainda estiver com nome `Administrador` e senha `123456`.
+
 ## Migracao dos dados antigos
 
 Veja o passo a passo em:

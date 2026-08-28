@@ -47,10 +47,13 @@ export async function initDb() {
       horario_prazo TIME,
       status TEXT NOT NULL DEFAULT 'Pendente',
       atribuido_para TEXT NOT NULL,
+      solicitado_por TEXT,
+      tarefa_origem_id TEXT,
       tipo TEXT NOT NULL DEFAULT 'Manual',
       origem_template_id TEXT,
       data_criacao TIMESTAMPTZ DEFAULT NOW(),
-      data_conclusao TIMESTAMPTZ
+      data_conclusao TIMESTAMPTZ,
+      obs_conclusao TEXT DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS templates_diarios (
@@ -107,9 +110,24 @@ export async function initDb() {
   await query("DROP TABLE IF EXISTS chat_mensagens");
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS horario_prazo TIME");
   await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS origem_template_id TEXT");
+  await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS solicitado_por TEXT");
+  await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS tarefa_origem_id TEXT");
+  await query("ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS obs_conclusao TEXT DEFAULT ''");
   await query("ALTER TABLE templates_diarios ADD COLUMN IF NOT EXISTS horario_prazo TIME");
   await query("ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check");
   await query("ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check CHECK (perfil IN ('Admin', 'Colaborador', 'Solicitante'))");
+  await query(`
+    DELETE FROM usuarios
+    WHERE email = 'admin@empresa.com'
+      AND nome = 'Administrador'
+      AND senha = '123456'
+      AND EXISTS (
+        SELECT 1
+        FROM usuarios
+        WHERE perfil = 'Admin'
+          AND email <> 'admin@empresa.com'
+      )
+  `);
   await query(`
     CREATE TABLE IF NOT EXISTS geracoes_diarias (
       template_id TEXT NOT NULL,
@@ -129,8 +147,8 @@ export async function initDb() {
 
   await query(`
     INSERT INTO usuarios (id, nome, email, senha, perfil, workspace)
-    VALUES ($1, 'Administrador', 'admin@empresa.com', '123456', 'Admin', 'Principal')
-    ON CONFLICT (email) DO NOTHING
+    SELECT $1, 'Administrador', 'admin@empresa.com', '123456', 'Admin', 'Principal'
+    WHERE NOT EXISTS (SELECT 1 FROM usuarios)
   `, [makeId('USR')]);
 }
 
