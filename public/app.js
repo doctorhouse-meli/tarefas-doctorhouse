@@ -10,6 +10,7 @@ let currentUser = null;
   let employeePendingFilter = 'today';
   let currentEmployeeTasks = [];
   let currentEmployeeRequests = [];
+  let showCompletedRequests = false;
   let knownEmployeeTaskIds = new Set();
   let knownRequestStatuses = new Map();
   let requestStatusBootstrapped = false;
@@ -126,6 +127,7 @@ let currentUser = null;
   }
 
   function logout() {
+    showCompletedRequests = false;
     stopAdminPolling();
     stopEmployeePolling();
     clearSessionLogin();
@@ -754,24 +756,35 @@ let currentUser = null;
       return;
     }
 
-    const visible = [...requests].slice(0, 6);
+    const visible = sortEmployeeTasks(requests.filter(task => task.status === 'Pendente' || task.status === 'Em Andamento'));
+    const completed = sortOldestFirst(requests.filter(task => task.status === 'Concluida'));
     panel.classList.remove('hidden');
     panel.innerHTML = `
       <section class="employee-requests-panel">
         <div class="employee-requests-header">
           <div>
             <h2>Pedidos ao admin</h2>
-            <p>${requests.length} pedido${requests.length === 1 ? '' : 's'} enviado${requests.length === 1 ? '' : 's'}</p>
+            <p>${visible.length} em aberto · ${completed.length} concluído${completed.length === 1 ? '' : 's'}</p>
           </div>
           <button type="button" class="employee-secondary-action" id="newRequestFromPanelBtn">Novo pedido</button>
         </div>
         <div class="employee-request-list">
-          ${visible.map(renderEmployeeRequestItem).join('') || '<p class="rounded-md bg-white p-3 text-sm font-medium text-slate-500">Nenhum pedido enviado ainda.</p>'}
+          ${visible.map(renderEmployeeRequestItem).join('') || '<p class="rounded-md bg-white p-3 text-sm font-medium text-slate-500">Nenhum pedido pendente ou em andamento.</p>'}
         </div>
+        ${completed.length ? `<div class="completed-requests-section">
+          <button id="toggleCompletedRequests" type="button" class="text-button" aria-expanded="${showCompletedRequests}" aria-controls="completedRequestsList">${showCompletedRequests ? 'Ocultar' : 'Ver'} concluídos (${completed.length})</button>
+          <div id="completedRequestsList" class="employee-request-list ${showCompletedRequests ? '' : 'hidden'}">${completed.map(renderEmployeeRequestItem).join('')}</div>
+        </div>` : ''}
       </section>
     `;
 
     $('#newRequestFromPanelBtn').addEventListener('click', () => openAdminRequest());
+    $('#toggleCompletedRequests')?.addEventListener('click', (event) => {
+      showCompletedRequests = !showCompletedRequests;
+      event.currentTarget.textContent = `${showCompletedRequests ? 'Ocultar' : 'Ver'} concluídos (${completed.length})`;
+      event.currentTarget.setAttribute('aria-expanded', String(showCompletedRequests));
+      $('#completedRequestsList').classList.toggle('hidden', !showCompletedRequests);
+    });
     $$('.requestDetailsBtn').forEach((button) => {
       button.addEventListener('click', () => openTaskDetails(currentEmployeeRequests.find((task) => task.id === button.dataset.taskId)));
     });

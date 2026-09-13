@@ -1,4 +1,6 @@
 :root { --ink:#20283e; --muted:#69748b; --accent:#4263eb; --pale:#edf0ff; --line:#e8ecf3; }
+.completed-requests-section { border-top:1px solid var(--line); padding:8px 12px; }
+.completed-requests-section>.text-button { padding:12px; }
 #adminTaskRows tr.task-just-saved { outline:2px solid #9ab0ff; outline-offset:-2px; }
 #taskForm button:disabled { opacity:.65; cursor:wait; }
 .creator-page { max-width:1180px; margin:0 auto; }
