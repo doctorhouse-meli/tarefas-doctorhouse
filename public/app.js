@@ -48,7 +48,7 @@ let currentUser = null;
     $('#taskForm').addEventListener('submit', handleSaveTask);
     $('#templateForm').addEventListener('submit', handleCreateTemplate);
     $('#userForm').addEventListener('submit', handleRegisterUser);
-    $('#userForm [name=criarParaOutros]').addEventListener('change',()=>{ $('#analystPermissions').hidden=!$('#userForm').elements.criarParaOutros.checked; });
+    for(const key of ['criarParaOutros','encaminharTarefas']) $('#userForm [name='+key+']').addEventListener('change',updateRecipientVisibility);
     $('#forwardTaskForm').addEventListener('submit', submitForwardTask);
     $('#workspaceForm').addEventListener('submit', handleCreateWorkspace);
     $('#commentForm').addEventListener('submit', handleAddComment);
@@ -1664,7 +1664,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
   function taskSenderName(task) { return task.criadoPorNome || 'Autoria não registrada'; }
   function renderAnalystPermissions(selectedIds) {
     const form=$('#userForm');
-    $('#analystPermissions').hidden=!form.elements.criarParaOutros.checked;
+    updateRecipientVisibility();
     const options=(adminData.usuarios || []).filter(user=>['Admin','Colaborador'].includes(user.perfil) && user.id!==form.elements.id.value);
     $('#analystRecipientOptions').innerHTML=options.map(user=>`<label class="recipient-permission"><input type="checkbox" name="recipientPermission" value="${escapeHtml(user.id)}" ${selectedIds.includes(user.id)?'checked':''}><span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.perfil)} · ${escapeHtml(user.workspace || '')}</small></span></label>`).join('') || '<p>Nenhum administrador ou colaborador disponível.</p>';
   }
@@ -1701,7 +1701,7 @@ async function openForwardTask(id) {
   if(!hasTaskPermission('encaminharTarefas'))return;
   try {
     const people=await callServer('getForwardRecipients',currentUser.email);
-    if(!people.length){showToast('Nenhum outro colaborador disponível.');return;}
+    if(!people.length){showToast('Nenhuma pessoa autorizada para encaminhamento. Peça ao administrador para revisar seu cadastro.');return;}
     const form=$('#forwardTaskForm');form.reset();form.elements.taskId.value=id;
     form.elements.recipientId.innerHTML='<option value="">Selecione...</option>'+people.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.nome)}</option>`).join('');
     $('#forwardTaskError').classList.add('hidden');closeModals();openModal('forwardTaskModal');
@@ -1714,4 +1714,9 @@ async function submitForwardTask(event) {
   catch(error){$('#forwardTaskError').textContent=error.message;$('#forwardTaskError').classList.remove('hidden');return;}
   finally{forwardingTask=false;button.disabled=false;}
   closeModals();showToast('Tarefa encaminhada.');await loadEmployee(false);
+}
+
+function updateRecipientVisibility() {
+  const form=$('#userForm');
+  $('#analystPermissions').hidden=!(form.elements.criarParaOutros.checked || form.elements.encaminharTarefas.checked);
 }

@@ -37,8 +37,8 @@ export async function authorizeTaskOperation(query,method,args,identity,adminMet
     allow('editarTarefas');const task=await getTask(),data=args[1];
     if(method==='updateTask' && data.atribuidoPara!==task.atribuido_para) {
       allow('encaminharTarefas');
-      const r=await query("SELECT 1 FROM usuarios WHERE email=$1 AND perfil='Colaborador'",[data.atribuidoPara]);
-      if(!r.rowCount)throw Error('Encaminhe apenas para outro colaborador.');
+      const r=await query("SELECT 1 FROM analyst_recipients allowed JOIN usuarios recipient ON recipient.id=allowed.recipient_id WHERE allowed.analyst_id=$1 AND recipient.email=$2 AND recipient.email<>$3 AND recipient.perfil IN ('Admin','Colaborador')",[user.id,data.atribuidoPara,user.email]);
+      if(!r.rowCount)throw Error('Destinatário não autorizado para encaminhamento.');
     }
   }
   return user;

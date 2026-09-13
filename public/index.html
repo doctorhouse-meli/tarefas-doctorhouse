@@ -14,9 +14,9 @@
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-21">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-21">
-    <link rel="stylesheet" href="/mobile.css?v=20260913-21">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-22">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-22">
+    <link rel="stylesheet" href="/mobile.css?v=20260913-22">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
@@ -446,13 +446,13 @@
         </div>
         <fieldset class="analyst-permissions"><legend>Permissões de tarefas</legend>
           <label class="recipient-permission"><input type="checkbox" name="excluirTarefas"><span>Excluir tarefas</span></label>
-          <label class="recipient-permission"><input type="checkbox" name="encaminharTarefas"><span>Encaminhar tarefas recebidas para outro colaborador</span></label>
+          <label class="recipient-permission"><input type="checkbox" name="encaminharTarefas"><span>Encaminhar tarefas recebidas para pessoas autorizadas</span></label>
           <label class="recipient-permission"><input type="checkbox" name="criarParaOutros"><span>Criar tarefas para outras pessoas</span></label>
           <label class="recipient-permission"><input type="checkbox" name="editarTarefas"><span>Editar tarefas</span></label>
         </fieldset>
         <fieldset id="analystPermissions" class="analyst-permissions" hidden>
-          <legend>Para quem pode criar tarefas?</legend>
-          <p>Marque os administradores e colaboradores permitidos. Sem seleção, só poderá criar tarefas para si.</p>
+          <legend>Pessoas autorizadas para criar ou encaminhar tarefas</legend>
+          <p>Esta lista vale para criar e encaminhar tarefas, conforme as permissões marcadas acima. Sem seleção, não poderá enviar tarefas para outras pessoas.</p>
           <div id="analystRecipientOptions" class="recipient-options"></div>
         </fieldset>
         <div class="mt-5 flex justify-end gap-2">
@@ -504,7 +504,7 @@
     <div id="forwardTaskModal" class="modal hidden">
       <form id="forwardTaskForm" class="modal-panel">
         <h2 class="text-lg font-semibold">Encaminhar tarefa</h2>
-        <p class="mt-2 text-sm text-slate-500">A tarefa sairá da sua lista e passará para o colaborador escolhido. Os detalhes e o histórico serão mantidos.</p>
+        <p class="mt-2 text-sm text-slate-500">A tarefa sairá da sua lista e passará para a pessoa escolhida. Os detalhes e o histórico serão mantidos.</p>
         <input name="taskId" type="hidden">
         <label class="field-label mt-4">Novo responsável<select name="recipientId" class="input" required></select></label>
         <p id="forwardTaskError" class="hidden mt-4 text-red-700" role="alert"></p>
@@ -559,12 +559,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-21"></script>
-    <script src="/admin-recurrences.js?v=20260913-21"></script>
-    <script src="/notification-sounds.js?v=20260913-21"></script>
-    <script src="/app.js?v=20260913-21"></script>
-  <script src="/workspace.js?v=20260913-21"></script>
-  <script src="/task-creator.js?v=20260913-21"></script>
+    <script src="/pwa.js?v=20260913-22"></script>
+    <script src="/admin-recurrences.js?v=20260913-22"></script>
+    <script src="/notification-sounds.js?v=20260913-22"></script>
+    <script src="/app.js?v=20260913-22"></script>
+  <script src="/workspace.js?v=20260913-22"></script>
+  <script src="/task-creator.js?v=20260913-22"></script>
   </body>
 </html>
 

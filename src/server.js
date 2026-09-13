@@ -1096,7 +1096,7 @@ export function createApp() {
 
 
 export async function getForwardRecipients(userEmail) {
-  const result=await query("SELECT recipient.* FROM usuarios recipient WHERE recipient.perfil='Colaborador' AND recipient.email<>$1 AND EXISTS(SELECT 1 FROM usuarios actor WHERE actor.email=$1 AND actor.permissoes->>'encaminharTarefas'='true') ORDER BY recipient.nome",[normalizeEmail(userEmail)]);
+  const result=await query("SELECT recipient.* FROM analyst_recipients allowed JOIN usuarios actor ON actor.id=allowed.analyst_id JOIN usuarios recipient ON recipient.id=allowed.recipient_id WHERE actor.email=$1 AND actor.permissoes->>'encaminharTarefas'='true' AND recipient.email<>actor.email AND recipient.perfil IN ('Admin','Colaborador') ORDER BY recipient.nome",[normalizeEmail(userEmail)]);
   return result.rows.map(sanitizeUser);
 }
 export async function forwardTask(taskId,recipientId,userEmail) {
@@ -1104,7 +1104,8 @@ export async function forwardTask(taskId,recipientId,userEmail) {
     FROM usuarios actor,usuarios recipient
     WHERE t.id=$1 AND t.atribuido_para=$3 AND actor.email=$3
       AND actor.permissoes->>'encaminharTarefas'='true'
-      AND recipient.id=$2 AND recipient.perfil='Colaborador' AND recipient.email<>actor.email
+      AND recipient.id=$2 AND recipient.perfil IN ('Admin','Colaborador') AND recipient.email<>actor.email
+      AND EXISTS(SELECT 1 FROM analyst_recipients allowed WHERE allowed.analyst_id=actor.id AND allowed.recipient_id=recipient.id)
     RETURNING t.*`,[taskId,recipientId,normalizeEmail(userEmail)]);
   if(!result.rowCount)throw Error('Você não tem permissão para encaminhar esta tarefa para essa pessoa.');
   const recipient=await getUserByEmail(result.rows[0].atribuido_para);
