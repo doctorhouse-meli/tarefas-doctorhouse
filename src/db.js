@@ -38,7 +38,7 @@ export async function initDb() {
       nome TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       senha TEXT NOT NULL,
-      perfil TEXT NOT NULL CHECK (perfil IN ('Admin', 'Colaborador', 'Analista')),
+      perfil TEXT NOT NULL CHECK (perfil IN ('Admin', 'Colaborador')),
       workspace TEXT NOT NULL REFERENCES workspaces(nome)
     );
 
@@ -121,8 +121,12 @@ export async function initDb() {
   await query("ALTER TABLE templates_diarios ADD COLUMN IF NOT EXISTS horario_prazo TIME");
   await query(`SELECT pg_advisory_xact_lock(hashtext('doctorhouse-profile-migration'));
     ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_check;
-    UPDATE usuarios SET perfil='Analista' WHERE perfil='Solicitante';
-    ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check CHECK (perfil IN ('Admin','Colaborador','Analista'));`);
+    ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS permissoes JSONB;
+    UPDATE usuarios SET permissoes=jsonb_build_object('excluirTarefas',perfil='Admin','encaminharTarefas',perfil='Admin','criarParaOutros',perfil IN ('Admin','Analista','Solicitante'),'editarTarefas',perfil='Admin') WHERE permissoes IS NULL;
+    ALTER TABLE usuarios ALTER COLUMN permissoes SET DEFAULT '{}'::jsonb;
+    ALTER TABLE usuarios ALTER COLUMN permissoes SET NOT NULL;
+    UPDATE usuarios SET perfil='Colaborador' WHERE perfil IN ('Analista','Solicitante');
+    ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check CHECK (perfil IN ('Admin','Colaborador'));`);
   await query(`
     DELETE FROM usuarios
     WHERE email = 'admin@empresa.com'
@@ -153,8 +157,8 @@ export async function initDb() {
   `, [makeId('WKS')]);
 
   await query(`
-    INSERT INTO usuarios (id, nome, email, senha, perfil, workspace)
-    SELECT $1, 'Administrador', 'admin@empresa.com', '123456', 'Admin', 'Principal'
+    INSERT INTO usuarios (id, nome, email, senha, perfil, workspace, permissoes)
+    SELECT $1, 'Administrador', 'admin@empresa.com', '123456', 'Admin', 'Principal', '{"excluirTarefas":true,"encaminharTarefas":true,"criarParaOutros":true,"editarTarefas":true}'::jsonb
     WHERE NOT EXISTS (SELECT 1 FROM usuarios)
   `, [makeId('USR')]);
 }

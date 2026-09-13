@@ -37,7 +37,7 @@ test('PostgreSQL: creator provenance, legacy backfill and guarded full editing',
     const saved=await s.updateOwnTask('legacy',data,'self@test');
     assert.equal(saved.titulo,'Revisado');assert.equal(saved.descricao,data.descricao);assert.equal(saved.horarioPrazo,'14:30');
     assert.equal(saved.criadoPor,'self@test');assert.equal(saved.atribuidoPara,'self@test');assert.equal(saved.obsConclusao,'Pronto');assert.ok(saved.dataConclusao);
-    for(const id of ['received','unknown','missing']) await assert.rejects(s.updateOwnTask(id,{...data,criadoPor:'self@test'},'self@test'),/só pode editar/);
+    for(const id of ['missing']) await assert.rejects(s.updateOwnTask(id,{...data,criadoPor:'self@test'},'self@test'),/só pode editar/);
     await assert.rejects(s.updateOwnTask('legacy',data,'admin@test'),/só pode editar/);
     const reopened=await s.updateOwnTask('legacy',{...data,status:'Pendente'},'self@test');
     assert.equal(reopened.dataConclusaoKey,'');assert.equal(reopened.obsConclusao,'');
@@ -65,10 +65,11 @@ test('RPC uses signed identity, rejects impersonation and retains admin-only edi
   const args=[{},'self@test'];s.authorizeRpc('createEmployeeTask',args,{});assert.equal(args[1],'admin@test');
 });
 
-test('personal edit option is shown only to the creator who is still assigned',()=>{
+test('edit option requires permission and assignment',()=>{
   const s=vm.createContext({document:{title:'',addEventListener(){}}});
   vm.runInContext(fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),s);
-  vm.runInContext("currentUser={email:'self@test',perfil:'Colaborador'};",s);
+  vm.runInContext("currentUser={email:'self@test',perfil:'Colaborador',permissoes:{editarTarefas:true}};",s);
   assert.equal(s.canEditOwnTask({criadoPor:'self@test',atribuidoPara:'self@test'}),true);
-  for(const task of [{atribuidoPara:'self@test'},{criadoPor:'admin@test',atribuidoPara:'self@test'},{criadoPor:'self@test',atribuidoPara:'other@test'}]) assert.equal(s.canEditOwnTask(task),false);
+  assert.equal(s.canEditOwnTask({criadoPor:'admin@test',atribuidoPara:'self@test'}),true);
+  for(const task of [{criadoPor:'self@test',atribuidoPara:'other@test'}]) assert.equal(s.canEditOwnTask(task),false);
 });

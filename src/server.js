@@ -7,6 +7,7 @@ import { DEFAULT_NOTIFICATION_SETTINGS, validateNotificationSettings } from './n
 import { initPush, createPushService } from './push.js';
 import { initTaskOwnership } from './task-ownership.js';
 import { initAnalysts, saveAnalystRecipients } from './analysts.js';
+import { saveUserPermissions, authorizeTaskOperation } from './permissions.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -123,7 +124,8 @@ function sanitizeUser(row) {
     id: row.id,
     nome: row.nome,
     email: row.email,
-    perfil: row.perfil === 'Solicitante' ? 'Analista' : row.perfil,
+    perfil: row.perfil === 'Admin' ? 'Admin' : 'Colaborador',
+    permissoes: row.permissoes || {},
     destinatariosPermitidos: row.destinatarios_permitidos || [],
     workspace: row.workspace,
   };
@@ -131,7 +133,6 @@ function sanitizeUser(row) {
 
 function normalizeProfile(profile) {
   if (profile === 'Admin') return 'Admin';
-  if (profile === 'Analista' || profile === 'Solicitante') return 'Analista';
   return 'Colaborador';
 }
 
@@ -264,7 +265,7 @@ async function ensureWorkspaceExists(workspace) {
 }
 
 async function getUserByEmail(email) {
-  const result = await query('SELECT * FROM usuarios WHERE email = $1', [normalizeEmail(email)]);
+  const result = await query('SELECT u.*,ARRAY(SELECT recipient_id FROM analyst_recipients WHERE analyst_id=u.id) AS destinatarios_permitidos FROM usuarios u WHERE email = $1', [normalizeEmail(email)]);
   return result.rows[0] || null;
 }
 
@@ -319,8 +320,10 @@ export async function registerUser(userData) {
       'INSERT INTO usuarios(id,nome,email,senha,perfil,workspace) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
       [makeId('USR'),userData.nome,normalizeEmail(userData.email),String(userData.senha),normalizeProfile(userData.perfil),userData.workspace]);
     await saveAnalystRecipients(client.query.bind(client),result.rows[0].id,normalizeProfile(userData.perfil),userData.destinatariosPermitidos || []);
+    await saveUserPermissions(client.query.bind(client),result.rows[0].id,userData.permissoes);
+    const saved=await client.query('SELECT * FROM usuarios WHERE id=$1',[result.rows[0].id]);
     await client.query('COMMIT');
-    return sanitizeUser({...result.rows[0],destinatarios_permitidos:userData.destinatariosPermitidos || []});
+    return sanitizeUser({...saved.rows[0],destinatarios_permitidos:userData.destinatariosPermitidos || []});
   } catch(error) {await client.query('ROLLBACK');throw error;}
   finally {client.release();}
 }
@@ -372,6 +375,8 @@ export async function updateUser(userId, userData) {
 
     await client.query('UPDATE tarefas SET criado_por_nome=$2 WHERE criado_por=$1',[newEmail,userData.nome]);
     await saveAnalystRecipients(client.query.bind(client),userId,normalizeProfile(userData.perfil),userData.destinatariosPermitidos);
+    await saveUserPermissions(client.query.bind(client),userId,userData.permissoes);
+    result.rows[0].permissoes=userData.permissoes || result.rows[0].permissoes;
     await client.query('COMMIT');
     return sanitizeUser({...result.rows[0],destinatarios_permitidos:userData.destinatariosPermitidos || []});
   } catch (error) {
@@ -465,7 +470,7 @@ export async function getAllowedTaskRecipients(userEmail) {
   const result=await query(`SELECT recipient.id,recipient.nome,recipient.email,recipient.perfil,recipient.workspace
     FROM analyst_recipients permissions JOIN usuarios analyst ON analyst.id=permissions.analyst_id
     JOIN usuarios recipient ON recipient.id=permissions.recipient_id
-    WHERE analyst.email=$1 AND analyst.perfil='Analista' AND recipient.perfil IN ('Admin','Colaborador')
+    WHERE analyst.email=$1 AND analyst.permissoes->>'criarParaOutros'='true' AND recipient.perfil IN ('Admin','Colaborador')
     ORDER BY recipient.nome,recipient.id`,[normalizeEmail(userEmail)]);
   return result.rows.map(sanitizeUser);
 }
@@ -478,7 +483,7 @@ export async function createAssignedTask(data,userEmail) {
     SELECT $1,recipient.workspace,$4,$5,$6,$7::date,$8::time,'Pendente',recipient.email,analyst.email,'Manual',analyst.email,analyst.nome
     FROM analyst_recipients permissions JOIN usuarios analyst ON analyst.id=permissions.analyst_id
     JOIN usuarios recipient ON recipient.id=permissions.recipient_id
-    WHERE analyst.email=$2 AND analyst.perfil='Analista' AND recipient.id=$3
+    WHERE analyst.email=$2 AND analyst.permissoes->>'criarParaOutros'='true' AND recipient.id=$3
       AND recipient.perfil IN ('Admin','Colaborador') RETURNING *`,
     [makeId('TSK'),normalizeEmail(userEmail),data.recipientId,String(data.titulo).trim(),String(data.descricao || ''),
       data.prioridade,data.dataPrazo,normalizeTime(data.horarioPrazo)]);
@@ -528,10 +533,10 @@ export async function updateOwnTask(taskId, data, userEmail) {
       data_prazo=$6::date, horario_prazo=$7::time, status=$8,
       data_conclusao=CASE WHEN $8='Concluida' THEN COALESCE(data_conclusao,NOW()) ELSE NULL END,
       obs_conclusao=CASE WHEN $8='Concluida' THEN $9 ELSE '' END
-    WHERE id=$1 AND criado_por=$2 AND atribuido_para=$2 RETURNING *`,
+    WHERE id=$1 AND atribuido_para=$2 RETURNING *`,
     [taskId, normalizeEmail(userEmail), String(data.titulo).trim(), String(data.descricao || ''),
       data.prioridade, data.dataPrazo, normalizeTime(data.horarioPrazo), data.status, String(data.obsConclusao || '').trim()]);
-  if (!result.rowCount) throw Error('Você só pode editar tarefas criadas por você para você.');
+  if (!result.rowCount) throw Error('Você só pode editar tarefas atribuídas a você.');
   await addHistory(taskId, normalizeEmail(userEmail), 'Editou tarefa', String(data.titulo).trim());
   return formatTask(result.rows[0]);
 }
@@ -940,6 +945,9 @@ const rpc = {
   createEmployeeTask,
   getAllowedTaskRecipients,
   createAssignedTask,
+  forwardTask,
+  getForwardRecipients,
+  getCurrentUser: async()=>null,
   updateTask,
   updateOwnTask,
   deleteTask,
@@ -972,7 +980,6 @@ const adminOnly = new Set([
   'createWorkspace',
   'createTask',
   'updateTask',
-  'deleteTask',
   'registerUser',
   'updateUser',
   'deleteUser',
@@ -998,6 +1005,9 @@ const emailArgIndex = {
   updateChecklistItem: 2,
   deleteChecklistItem: 1,
   deleteUser: 1,
+  deleteTask: 1,
+  forwardTask: 2,
+  getForwardRecipients: 0,
 };
 
 function authorizeRpc(functionName, args, req) {
@@ -1022,6 +1032,8 @@ function authorizeRpc(functionName, args, req) {
   if (['createEmployeeTask','createEmployeeDailyTemplate'].includes(functionName)) args[1] = user.email;
   if (functionName === 'updateOwnTask') args[2] = user.email;
   if (functionName === 'createAssignedTask') args[1] = user.email;
+  if (functionName === 'deleteTask') args[1] = user.email;
+  if (functionName === 'forwardTask') args[2] = user.email;
 }
 
 export function createApp() {
@@ -1057,8 +1069,10 @@ export function createApp() {
       if (!fn) throw new Error('Funcao nao encontrada.');
       const args = req.body.args || [];
       authorizeRpc(req.params.functionName, args, req);
-      const result = await fn(...args);
-      if (['createTask','createEmployeeTask','createAssignedTask','updateTask','updateOwnTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
+      const actor=req.params.functionName!=='loginUser' ? await authorizeTaskOperation(query,req.params.functionName,args,getBearerUser(req),adminOnly) : null;
+      const result = req.params.functionName==='getCurrentUser' ? sanitizeUser(await getUserByEmail(getBearerUser(req).email)) : await fn(...args);
+      if(req.params.functionName==='getAdminDashboardData') result.currentUser=result.usuarios.find(user=>user.email===actor.email) || sanitizeUser(actor);
+      if (['createTask','createEmployeeTask','createAssignedTask','forwardTask','updateTask','updateOwnTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
         void pushService.dispatch().catch(() => console.error('Falha ao despachar notificações; a fila será reprocessada.'));
       }
       res.json({ ok: true, result });
@@ -1078,6 +1092,24 @@ export function createApp() {
   });
 
   return app;
+}
+
+
+export async function getForwardRecipients(userEmail) {
+  const result=await query("SELECT recipient.* FROM usuarios recipient WHERE recipient.perfil='Colaborador' AND recipient.email<>$1 AND EXISTS(SELECT 1 FROM usuarios actor WHERE actor.email=$1 AND actor.permissoes->>'encaminharTarefas'='true') ORDER BY recipient.nome",[normalizeEmail(userEmail)]);
+  return result.rows.map(sanitizeUser);
+}
+export async function forwardTask(taskId,recipientId,userEmail) {
+  const result=await query(`UPDATE tarefas t SET atribuido_para=recipient.email,workspace=recipient.workspace
+    FROM usuarios actor,usuarios recipient
+    WHERE t.id=$1 AND t.atribuido_para=$3 AND actor.email=$3
+      AND actor.permissoes->>'encaminharTarefas'='true'
+      AND recipient.id=$2 AND recipient.perfil='Colaborador' AND recipient.email<>actor.email
+    RETURNING t.*`,[taskId,recipientId,normalizeEmail(userEmail)]);
+  if(!result.rowCount)throw Error('Você não tem permissão para encaminhar esta tarefa para essa pessoa.');
+  const recipient=await getUserByEmail(result.rows[0].atribuido_para);
+  await addHistory(taskId,normalizeEmail(userEmail),'Encaminhou tarefa','Para: '+recipient.nome);
+  return formatTask(result.rows[0]);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

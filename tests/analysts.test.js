@@ -5,24 +5,25 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import {PGlite} from '@electric-sql/pglite';
 import {initTaskOwnership} from '../src/task-ownership.js';
+import {saveUserPermissions,authorizeTaskOperation} from '../src/permissions.js';
 import {initAnalysts,saveAnalystRecipients} from '../src/analysts.js';
 
-test('PostgreSQL: migra Analistas, preserva tarefas e aplica destinatários individuais no servidor',async()=>{
+test('PostgreSQL: migração para dois perfis, permissões, escopo, encaminhamento e revogação',async()=>{
  const db=new PGlite();
  try {
   const query=async(sql,args)=>{if(!args){const results=await db.exec(sql);const r=results.at(-1);return {rows:r?.rows||[],rowCount:r?.affectedRows||r?.rows?.length||0};}const r=await db.query(sql,args);return {rows:r.rows,rowCount:r.affectedRows||r.rows.length};};
-  const context=vm.createContext({query,crypto,Buffer,process,saveAnalystRecipients,pool:{connect:async()=>({query,release(){}})}});
+  const context=vm.createContext({query,crypto,Buffer,process,saveAnalystRecipients,saveUserPermissions,pool:{connect:async()=>({query,release(){}})}});
   const dbSource=fs.readFileSync(new URL('../src/db.js',import.meta.url),'utf8');
   vm.runInContext(dbSource.slice(dbSource.indexOf('export async function initDb')).replaceAll('export ',''),context);
   await context.initDb();
-  await db.exec(`ALTER TABLE usuarios DROP CONSTRAINT usuarios_perfil_check;
+  await db.exec(`ALTER TABLE usuarios DROP COLUMN permissoes; ALTER TABLE usuarios DROP CONSTRAINT usuarios_perfil_check;
    ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_check CHECK(perfil IN ('Admin','Colaborador','Solicitante'));
    INSERT INTO usuarios VALUES('ana','Ana Silva','ana@test','pw','Solicitante','Principal'),('col','Carla','carla@test','pw','Colaborador','Principal'),('other','Outra Analista','other@test','pw','Solicitante','Principal');`);
   await context.initDb();await initTaskOwnership(query);
   await db.exec(`INSERT INTO tarefas(id,workspace,titulo,descricao,prioridade,data_prazo,status,atribuido_para,solicitado_por,criado_por)
    VALUES('legacy','Principal','Pedido: Revisar','Pedido feito por: Ana Silva (ana@test)'||chr(10)||'Descrição preservada','Alta','2026-09-15','Em Andamento','carla@test','ana@test','ana@test');`);
   await initAnalysts(query);await initAnalysts(query);
-  assert.equal((await query("SELECT perfil FROM usuarios WHERE id='ana'")).rows[0].perfil,'Analista');
+  assert.equal((await query("SELECT perfil FROM usuarios WHERE id='ana'")).rows[0].perfil,'Colaborador');
   const legacy=(await query("SELECT * FROM tarefas WHERE id='legacy'")).rows[0];
   assert.equal(legacy.titulo,'Revisar');assert.equal(legacy.descricao,'Descrição preservada');assert.equal(legacy.status,'Em Andamento');assert.equal(legacy.criado_por_nome,'Ana Silva');
   const source=fs.readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
@@ -33,7 +34,7 @@ test('PostgreSQL: migra Analistas, preserva tarefas e aplica destinatários indi
   await saveAnalystRecipients(query,'ana','Analista',['col',admin,'col']);
   assert.equal((await context.getAllowedTaskRecipients('ana@test')).length,2);
   assert.equal((await context.getAllowedTaskRecipients('other@test')).length,0);
-  for(const ids of [['other'],['missing'],['ana'],'all',[null]]) await assert.rejects(saveAnalystRecipients(query,'ana','Analista',ids));
+  for(const ids of [['missing'],['ana'],'all',[null]]) await assert.rejects(saveAnalystRecipients(query,'ana','Analista',ids));
   assert.equal((await context.getAllowedTaskRecipients('ana@test')).length,2);
   const data={recipientId:'col',titulo:'Conferir estoque',descricao:'Instruções',prioridade:'Alta',dataPrazo:'2026-09-20',horarioPrazo:'14:30',status:'Concluida',autorEmail:'spoof@test',criadoPor:'spoof@test',workspace:'Spoof',atribuidoPara:'spoof@test'};
   const made=await context.createAssignedTask(data,'ana@test');
@@ -48,27 +49,67 @@ test('PostgreSQL: migra Analistas, preserva tarefas e aplica destinatários indi
   const sent=await context.getSentTasks('ana.nova@test');assert.equal(sent.length,3);
   assert.equal(sent.find(t=>t.id===made.id).atribuidoParaNome,'Carla');
   const visible=(await context.getEmployeeTasks('carla@test')).find(t=>t.id===made.id);assert.equal(visible.criadoPorNome,'Ana Souza');
-  await assert.rejects(context.updateUser('ana',{nome:'Errado',email:'broken@test',perfil:'Analista',workspace:'Principal',destinatariosPermitidos:['other']}));
+  await assert.rejects(context.updateUser('ana',{nome:'Errado',email:'broken@test',perfil:'Analista',workspace:'Principal',destinatariosPermitidos:['missing']}));
   assert.equal((await query("SELECT nome FROM usuarios WHERE id='ana'")).rows[0].nome,'Ana Souza');
   await assert.rejects(context.createAssignedTask({...data,recipientId:admin},'ana.nova@test'),/permissão/);
-  await query("UPDATE usuarios SET perfil='Analista' WHERE id='col'");
-  assert.equal((await context.getAllowedTaskRecipients('ana.nova@test')).length,0);
-  await assert.rejects(context.createAssignedTask(data,'ana.nova@test'),/permissão/);
-  await query("UPDATE usuarios SET perfil='Colaborador' WHERE id='col'");
   await saveAnalystRecipients(query,'ana','Analista',[]);
   await assert.rejects(context.createAssignedTask(data,'ana.nova@test'),/permissão/);
-  vm.runInContext("getBearerUser=()=>({email:'ana.nova@test',perfil:'Analista'});",context);
+
+  const adminMethods=vm.runInContext('adminOnly',context);
+  const gate=(method,args,email='carla@test',perfil='Colaborador')=>authorizeTaskOperation(query,method,args,{email,perfil},adminMethods);
+  const editData={titulo:'Recebida revisada',descricao:'Detalhes atualizados',prioridade:'Alta',dataPrazo:'2026-09-25',status:'Pendente'};
+  for(const method of ['updateOwnTask','deleteTask','forwardTask'])await assert.rejects(gate(method,['legacy',editData,'carla@test']),/não permite/);
+  await gate('updateTaskStatus',['legacy','Concluida','carla@test']);
+  await saveUserPermissions(query,'col',{editarTarefas:true});
+  await gate('updateOwnTask',['legacy',editData,'carla@test']);
+  const edited=await context.updateOwnTask('legacy',editData,'carla@test');
+  assert.equal(edited.titulo,editData.titulo);assert.equal(edited.criadoPor,'ana.nova@test');
+  await assert.rejects(gate('deleteTask',['legacy','carla@test']),/não permite/);
+  await saveUserPermissions(query,'col',{excluirTarefas:true,encaminharTarefas:true});
+  await gate('deleteTask',['legacy','carla@test']);
+  await assert.rejects(gate('updateOwnTask',['legacy',editData,'carla@test']),/não permite/);
+  await assert.rejects(context.forwardTask('legacy',admin,'carla@test'),/permissão/);
+  const forwarded=await context.forwardTask('legacy','other','carla@test');
+  assert.equal(forwarded.atribuidoPara,'other@test');assert.equal(forwarded.criadoPor,'ana.nova@test');
+  assert.equal((await query("SELECT COUNT(*)::int AS n FROM historico WHERE task_id='legacy' AND acao='Encaminhou tarefa'")).rows[0].n,1);
+  await assert.rejects(gate('deleteTask',['legacy','carla@test']),/não disponível/);
+  await assert.rejects(context.forwardTask('legacy','col','carla@test'),/permissão/);
+  await saveUserPermissions(query,'other',{encaminharTarefas:true});
+  assert.ok((await context.getForwardRecipients('other@test')).some(u=>u.id==='col'));
+  await saveUserPermissions(query,'other',{});
+  assert.equal((await context.getForwardRecipients('other@test')).length,0);
+  await assert.rejects(context.forwardTask('legacy','col','other@test'),/permissão/);
+  await saveAnalystRecipients(query,'col','Colaborador',[admin]);
+  await saveUserPermissions(query,'col',{criarParaOutros:true});
+  assert.equal((await context.getAllowedTaskRecipients('carla@test')).length,1);
+  await context.createAssignedTask({...data,recipientId:admin},'carla@test');
+  await saveUserPermissions(query,'col',{});
+  assert.equal((await context.getAllowedTaskRecipients('carla@test')).length,0);
+  await assert.rejects(context.createAssignedTask({...data,recipientId:admin},'carla@test'),/permissão/);
+  await saveUserPermissions(query,admin,{});
+  await assert.rejects(gate('deleteTask',['legacy'],'admin@empresa.com','Admin'),/não permite/);
+  await assert.rejects(gate('createTask',[{atribuidoPara:'carla@test'}],'admin@empresa.com','Admin'),/não permite/);
+  await saveAnalystRecipients(query,admin,'Admin',[]);
+  await saveUserPermissions(query,admin,{criarParaOutros:true});
+  await assert.rejects(gate('createTask',[{atribuidoPara:'carla@test'}],'admin@empresa.com','Admin'),/Destinatário/);
+  await saveAnalystRecipients(query,admin,'Admin',['col']);
+  await gate('createTask',[{atribuidoPara:'carla@test'}],'admin@empresa.com','Admin');
+  await query("UPDATE usuarios SET perfil='Colaborador' WHERE id=$1",[admin]);
+  await assert.rejects(gate('updateUser',['col',{}],'admin@empresa.com','Admin'),/Admin/);
+  await assert.rejects(context.registerUser({nome:'Inválido',email:'invalid@test',senha:'pw',perfil:'Colaborador',workspace:'Principal',permissoes:{editarTarefas:'sim'}}),/Permissões/);
+  assert.equal((await query("SELECT * FROM usuarios WHERE email='invalid@test'")).rowCount,0);
+  vm.runInContext("getBearerUser=()=>({email:'ana.nova@test',perfil:'Colaborador'});",context);
   assert.throws(()=>context.authorizeRpc('createAssignedTask',[data,'other@test'],{}),/proprio usuario/);
   assert.throws(()=>context.authorizeRpc('updateUser',['col',{}],{}),/Admin/);
   assert.equal(vm.runInContext("rpc.createAdminRequest",context),undefined);
  } finally {await db.close();}
 });
 
-test('editor de usuário recupera permissões existentes ao abrir o cadastro da Analista',()=>{
- const form={elements:Object.fromEntries(['id','emailOriginal','nome','email','senha','perfil','workspace'].map(name=>[name,{}]))};
+test('editor de usuário recupera destinatários e permissões do colaborador',()=>{
+ const form={elements:Object.fromEntries(['id','emailOriginal','nome','email','senha','perfil','workspace','excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas'].map(name=>[name,{}]))};
  const title={};let selected;
  const c=vm.createContext({document:{title:'',addEventListener(){},querySelector:selector=>selector==='#userForm'?form:title},form,title,capture:ids=>{selected=Array.from(ids)}});
  vm.runInContext(fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),c);
- vm.runInContext("openModal=()=>{};renderAnalystPermissions=capture;adminData={usuarios:[{id:'ana',nome:'Ana',email:'ana@test',perfil:'Analista',workspace:'Principal',destinatariosPermitidos:['adm','col']}]};",c);
- c.openEditUser('ana');assert.equal(form.elements.perfil.value,'Analista');assert.deepEqual(selected,['adm','col']);
+ vm.runInContext("openModal=()=>{};renderAnalystPermissions=capture;adminData={usuarios:[{id:'ana',nome:'Ana',email:'ana@test',perfil:'Colaborador',workspace:'Principal',destinatariosPermitidos:['adm','col']}]};",c);
+ c.openEditUser('ana');assert.equal(form.elements.perfil.value,'Colaborador');assert.deepEqual(selected,['adm','col']);
 });

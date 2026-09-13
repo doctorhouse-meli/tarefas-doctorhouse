@@ -7,7 +7,7 @@
     "start": "node src/server.js",
     "cron:daily": "node src/cron.js",
     "import:sheets": "node src/importSheets.js data/sheets-export.json",
-    "check": "node --check src/server.js && node --check src/cron.js && node --check src/importSheets.js && node --check src/push.js && node --check public/pwa.js && node --check public/sw.js && node --check public/app.js",
+    "check": "node --check src/server.js && node --check src/permissions.js && node --check src/cron.js && node --check src/importSheets.js && node --check src/push.js && node --check public/pwa.js && node --check public/sw.js && node --check public/app.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {

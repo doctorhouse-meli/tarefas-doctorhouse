@@ -72,7 +72,7 @@ function normalizeStatus(input) {
 
 function normalizeProfile(input) {
   const text = String(input || 'Colaborador').trim().replace(/^Solicitante$/, 'Analista');
-  return ['Admin', 'Colaborador', 'Analista'].includes(text) ? text : 'Colaborador';
+  return ['Admin', 'Colaborador'].includes(text) ? text : 'Colaborador';
 }
 
 function normalizeType(input) {

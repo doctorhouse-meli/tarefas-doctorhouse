@@ -6,6 +6,14 @@ export async function initAnalysts(query) {
       recipient_id TEXT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       PRIMARY KEY(analyst_id,recipient_id)
     );
+    DO $$ BEGIN
+    IF NOT EXISTS(SELECT 1 FROM app_settings WHERE key='user_permissions_migrated') THEN
+      INSERT INTO analyst_recipients(analyst_id,recipient_id)
+        SELECT actor.id,recipient.id FROM usuarios actor CROSS JOIN usuarios recipient
+        WHERE actor.perfil='Admin' AND actor.id<>recipient.id
+        ON CONFLICT DO NOTHING;
+      INSERT INTO app_settings(key,value) VALUES('user_permissions_migrated','true'::jsonb);
+    END IF; END $$;
     ALTER TABLE tarefas ADD COLUMN IF NOT EXISTS criado_por_nome TEXT;
     UPDATE tarefas t SET criado_por=t.solicitado_por WHERE t.criado_por IS NULL AND t.solicitado_por IS NOT NULL
       AND EXISTS(SELECT 1 FROM usuarios u WHERE u.email=t.solicitado_por);
@@ -23,8 +31,8 @@ export async function initAnalysts(query) {
 
 export async function saveAnalystRecipients(query, analystId, profile, recipientIds) {
   // An older admin client omitting this field must not erase existing permissions.
-  if (recipientIds === undefined && profile === 'Analista') return;
-  const ids = profile === 'Analista' ? recipientIds : [];
+  if (recipientIds === undefined) return;
+  const ids = recipientIds;
   if (!Array.isArray(ids) || ids.some(id=>typeof id!=='string') || ids.length>1000) throw Error('Selecione os destinatários permitidos.');
   const unique=[...new Set(ids)];
   if(unique.length) {

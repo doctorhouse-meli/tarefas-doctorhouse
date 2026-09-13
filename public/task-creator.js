@@ -22,7 +22,7 @@ function initTaskCreator() {
 
 function populateTaskCreator() {
   for (const [id, entries] of [
-    ['creatorEmployee', (adminData.usuarios || []).map(user => [user.email, formatUserOptionLabel(user)])],
+    ['creatorEmployee', (adminData.usuarios || []).filter(user => user.email===currentUser.email || (hasTaskPermission('criarParaOutros') && currentUser.destinatariosPermitidos?.includes(user.id))).map(user => [user.email, formatUserOptionLabel(user)])],
     ['creatorWorkspace', (adminData.workspaces || []).map(space => [space.nome, space.nome])]
   ]) {
     const select = document.getElementById(id);
