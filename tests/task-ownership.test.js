@@ -16,14 +16,14 @@ function server(query) {
 test('PostgreSQL: creator provenance, legacy backfill and guarded full editing',async()=>{
   const db=new PGlite();
   try {
-    await db.exec(`CREATE TABLE usuarios(email TEXT PRIMARY KEY);
-      CREATE TABLE tarefas(id TEXT PRIMARY KEY,workspace TEXT,titulo TEXT,descricao TEXT,prioridade TEXT,data_prazo DATE,
+    await db.exec(`CREATE TABLE usuarios(email TEXT PRIMARY KEY,nome TEXT);
+      CREATE TABLE tarefas(id TEXT PRIMARY KEY,criado_por_nome TEXT,workspace TEXT,titulo TEXT,descricao TEXT,prioridade TEXT,data_prazo DATE,
         horario_prazo TIME,status TEXT,atribuido_para TEXT,solicitado_por TEXT,tarefa_origem_id TEXT,tipo TEXT,
         data_conclusao TIMESTAMPTZ,obs_conclusao TEXT,origem_template_id TEXT,data_criacao TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE historico(id TEXT PRIMARY KEY,task_id TEXT,autor_email TEXT,acao TEXT,detalhes TEXT,data_hora TIMESTAMPTZ DEFAULT NOW());
       CREATE TABLE templates_diarios(id TEXT PRIMARY KEY,workspace TEXT,titulo TEXT,descricao TEXT,prioridade TEXT,atribuido_para TEXT,horario_prazo TIME,dias_semana TEXT);
       CREATE TABLE geracoes_diarias(template_id TEXT,data_prazo DATE,task_id TEXT,ignorada BOOLEAN DEFAULT FALSE,PRIMARY KEY(template_id,data_prazo));
-      INSERT INTO usuarios VALUES('self@test'),('admin@test');
+      INSERT INTO usuarios VALUES('self@test','Colaborador'),('admin@test','Administrador');
       INSERT INTO tarefas(id,atribuido_para) VALUES('legacy','self@test'),('received','self@test'),('unknown','self@test');
       INSERT INTO historico(id,task_id,autor_email,acao) VALUES('h1','legacy','self@test','Criou tarefa'),('h2','received','admin@test','Criou tarefa');`);
     const query=async(sql,args)=>{

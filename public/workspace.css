@@ -392,3 +392,15 @@ table td { font-size:15px; }
 #recurrenceEditFields { display:grid; gap:16px; }
 #recurrenceEditError { color:#b42318; }
 @media(max-width:750px) { .recurrence-list { grid-template-columns:1fr; } .recurrences-heading,.recurrence-toolbar { align-items:stretch; flex-direction:column; } .recurrence-toolbar select { width:100%; } .recurrence-overview { flex-wrap:wrap; } }
+
+.task-sender { color:var(--muted); font-size:13px; line-height:1.5; margin:8px 0; overflow-wrap:anywhere; }
+.analyst-permissions { border:1px solid var(--line); border-radius:14px; margin-top:18px; padding:16px; min-width:0; }
+.analyst-permissions[hidden] { display:none; }
+.analyst-permissions legend { font-weight:650; padding:0 6px; }
+.analyst-permissions > p { color:var(--muted); line-height:1.5; margin-bottom:12px; }
+.recipient-options { display:grid; gap:8px; max-height:260px; overflow-y:auto; }
+.recipient-permission { display:flex; align-items:center; gap:12px; min-height:52px; padding:10px; border:1px solid var(--line); border-radius:10px; cursor:pointer; }
+.recipient-permission input[type=checkbox] { width:20px; height:20px; flex:0 0 20px; margin:0; accent-color:var(--accent); }
+.recipient-permission span { min-width:0; overflow-wrap:anywhere; }
+.recipient-permission strong,.recipient-permission small { display:block; }
+.recipient-permission small { color:var(--muted); margin-top:3px; }

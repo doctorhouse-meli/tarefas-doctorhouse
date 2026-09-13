@@ -18,7 +18,8 @@ let currentUser = null;
   let requestStatusBootstrapped = false;
   let knownAdminCompletionObs = new Set();
   let adminCompletionObsBootstrapped = false;
-  let requestAdmins = [];
+
+  let assignmentSavePending = false;
   let adminDefaultFilterApplied = false;
   let audioContext = null;
   let originalPageTitle = document.title || 'Dashboard de Tarefas';
@@ -46,6 +47,7 @@ let currentUser = null;
     $('#taskForm').addEventListener('submit', handleSaveTask);
     $('#templateForm').addEventListener('submit', handleCreateTemplate);
     $('#userForm').addEventListener('submit', handleRegisterUser);
+    $('#userForm [name=perfil]').addEventListener('change',()=>{ $('#analystPermissions').hidden=$('#userForm').elements.perfil.value!=='Analista'; });
     $('#workspaceForm').addEventListener('submit', handleCreateWorkspace);
     $('#commentForm').addEventListener('submit', handleAddComment);
     $('#checklistForm').addEventListener('submit', handleAddChecklistItem);
@@ -353,7 +355,7 @@ let currentUser = null;
     return `
       <div class="admin-mini-card">
         <p class="text-sm font-black text-slate-900">${escapeHtml(task.titulo)}</p>
-        <p class="mt-1 text-xs text-slate-500">${escapeHtml(getUserLabelByEmail(task.atribuidoPara))} | ${escapeHtml(formatTaskSchedule(task))}</p>
+        <p class="task-sender">Enviada por: ${escapeHtml(taskSenderName(task))}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(getUserLabelByEmail(task.atribuidoPara))} | ${escapeHtml(formatTaskSchedule(task))}</p>
       </div>
     `;
   }
@@ -427,7 +429,7 @@ let currentUser = null;
       <tr data-task-row="${escapeHtml(task.id)}">
         <td data-label="Tarefa" class="px-4 py-3">
           <div class="font-black text-slate-900">${escapeHtml(task.titulo)}</div>
-          <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div>
+          <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div><div class="task-sender">Enviada por: ${escapeHtml(taskSenderName(task))}</div>
           ${task.obsConclusao ? `<div class="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Obs ao concluir: ${escapeHtml(task.obsConclusao)}</div>` : ''}
         </td>
         <td data-label="Responsável" class="px-4 py-3">
@@ -504,6 +506,7 @@ let currentUser = null;
     form.elements.senha.required = true;
     form.elements.senha.placeholder = 'Senha';
     form.elements.perfil.value = 'Colaborador';
+    renderAnalystPermissions([]);
   }
 
   function openEditUser(userId) {
@@ -521,6 +524,7 @@ let currentUser = null;
     form.elements.senha.placeholder = 'Nova senha (deixe vazio para manter)';
     form.elements.perfil.value = user.perfil || 'Colaborador';
     form.elements.workspace.value = user.workspace || '';
+    renderAnalystPermissions(user.destinatariosPermitidos || []);
     openModal('userModal');
   }
 
@@ -621,7 +625,7 @@ let currentUser = null;
     await refreshNotificationSettings();
     const tasks = prepareEmployeeTasks(await callServer('getEmployeeTasks', currentUser.email));
     currentEmployeeTasks = tasks;
-    currentEmployeeRequests = canRequestAdmin() ? await callServer('getMyAdminRequests', currentUser.email) : [];
+    currentEmployeeRequests = canRequestAdmin() ? await callServer('getSentTasks', currentUser.email) : [];
     notifyNewEmployeeTasks(tasks, isInitialLoad);
     notifyRequestStatusChanges(currentEmployeeRequests, isInitialLoad);
     renderEmployeeSummary(tasks);
@@ -788,16 +792,16 @@ let currentUser = null;
       <section class="employee-requests-panel">
         <div class="employee-requests-header">
           <div>
-            <h2>Pedidos ao admin</h2>
-            <p>${visible.length} em aberto · ${completed.length} concluído${completed.length === 1 ? '' : 's'}</p>
+            <h2>Tarefas enviadas</h2>
+            <p>${visible.length} em aberto · ${completed.length} concluída${completed.length === 1 ? '' : 's'}</p>
           </div>
-          <button type="button" class="employee-secondary-action" id="newRequestFromPanelBtn">Novo pedido</button>
+          <button type="button" class="employee-secondary-action" id="newRequestFromPanelBtn">Criar tarefa</button>
         </div>
         <div class="employee-request-list">
-          ${visible.map(renderEmployeeRequestItem).join('') || '<p class="rounded-md bg-white p-3 text-sm font-medium text-slate-500">Nenhum pedido pendente ou em andamento.</p>'}
+          ${visible.map(renderEmployeeRequestItem).join('') || '<p class="rounded-md bg-white p-3 text-sm font-medium text-slate-500">Nenhuma tarefa enviada pendente ou em andamento.</p>'}
         </div>
         ${completed.length ? `<div class="completed-requests-section">
-          <button id="toggleCompletedRequests" type="button" class="text-button" aria-expanded="${showCompletedRequests}" aria-controls="completedRequestsList">${showCompletedRequests ? 'Ocultar' : 'Ver'} concluídos (${completed.length})</button>
+          <button id="toggleCompletedRequests" type="button" class="text-button" aria-expanded="${showCompletedRequests}" aria-controls="completedRequestsList">${showCompletedRequests ? 'Ocultar' : 'Ver'} concluídas (${completed.length})</button>
           <div id="completedRequestsList" class="employee-request-list ${showCompletedRequests ? '' : 'hidden'}">${completed.map(renderEmployeeRequestItem).join('')}</div>
         </div>` : ''}
       </section>
@@ -806,7 +810,7 @@ let currentUser = null;
     $('#newRequestFromPanelBtn').addEventListener('click', () => openAdminRequest());
     $('#toggleCompletedRequests')?.addEventListener('click', (event) => {
       showCompletedRequests = !showCompletedRequests;
-      event.currentTarget.textContent = `${showCompletedRequests ? 'Ocultar' : 'Ver'} concluídos (${completed.length})`;
+      event.currentTarget.textContent = `${showCompletedRequests ? 'Ocultar' : 'Ver'} concluídas (${completed.length})`;
       event.currentTarget.setAttribute('aria-expanded', String(showCompletedRequests));
       $('#completedRequestsList').classList.toggle('hidden', !showCompletedRequests);
     });
@@ -820,7 +824,7 @@ let currentUser = null;
       <button type="button" class="requestDetailsBtn employee-request-item is-${task.status === 'Concluida' ? 'done' : task.status === 'Em Andamento' ? 'progress' : 'pending'}" data-task-id="${escapeHtml(task.id)}">
         <span class="min-w-0">
           <strong>${escapeHtml(task.titulo)}</strong>
-          <small>${escapeHtml(formatTaskSchedule(task))}</small>
+          <small>${escapeHtml(formatTaskSchedule(task))}</small><small>Enviada por: ${escapeHtml(taskSenderName(task))}</small>
         </span>
         ${statusBadge(task.status)}
       </button>
@@ -968,14 +972,14 @@ let currentUser = null;
       <button class="statusBtn task-check ${done ? 'checked' : ''}" data-task-id="${id}" data-status="${done ? 'Pendente' : 'Concluida'}" aria-label="${done ? 'Reabrir' : 'Concluir'}: ${escapeHtml(task.titulo)}" title="${done ? 'Reabrir tarefa' : 'Concluir tarefa'}">${done ? '✓' : ''}</button>
       <div class="task-row-content"><button class="taskDetailsBtn employee-task-title" data-task-id="${id}">${escapeHtml(task.titulo)}</button>
       ${task.descricao ? `<div class="employee-task-description">${taskDescriptionHtml(task.descricao)}</div>` : ''}
-      <div class="task-meta"><span class="due-chip ${!done ? getTaskDueKey(task) : ''}">◷ ${escapeHtml(formatDueLabel(task))}</span>${priorityBadge(task.prioridade)}${task.status === 'Em Andamento' ? statusBadge(task.status) : ''}<span>${escapeHtml(task.workspace || '')}</span>${task.tipo === 'Diaria' ? '<span>↻ Diária</span>' : ''}</div></div>
+      <div class="task-meta"><span class="due-chip ${!done ? getTaskDueKey(task) : ''}">◷ ${escapeHtml(formatDueLabel(task))}</span>${priorityBadge(task.prioridade)}${task.status === 'Em Andamento' ? statusBadge(task.status) : ''}<span>${escapeHtml(task.workspace || '')}</span>${task.tipo === 'Diaria' ? '<span>↻ Diária</span>' : ''}</div><p class="task-sender">Enviada por: ${escapeHtml(taskSenderName(task))}</p></div>
       <details class="task-menu"><summary aria-label="Ações: ${escapeHtml(task.titulo)}" title="Mais ações">⋮</summary><div class="task-menu-popover">${canEditOwnTask(task) ? `<button class="editOwnTaskBtn employee-action-btn" data-task-id="${id}">Editar tarefa</button>` : ''}${renderEmployeeActionButtons(task)}<button class="taskDetailsBtn employee-action-btn" data-task-id="${id}">Ver detalhes</button></div></details>
     </article>`;
   }
 
   function renderEmployeeActionButtons(task) {
     const requestButton = canRequestAdmin() && task.status !== 'Concluida'
-      ? `<button class="requestAdminBtn employee-action-btn is-request" data-task-id="${escapeHtml(task.id)}">Pedir ao admin</button>`
+      ? `<button class="requestAdminBtn employee-action-btn is-request" data-task-id="${escapeHtml(task.id)}">Criar tarefa para alguém</button>`
       : '';
 
     if (task.status === 'Pendente') {
@@ -1060,6 +1064,7 @@ let currentUser = null;
     selectedTask = task;
     $('#detailsTitle').textContent = task.titulo;
     $('#detailsDescription').textContent = task.descricao || 'Sem descricao.';
+    $('#detailsSender').textContent = 'Enviada por: ' + taskSenderName(task);
     const isOwnAssignedTask = normalizeEmailClient(task.atribuidoPara) === normalizeEmailClient(currentUser.email);
     $('#requestFromDetailsBtn').classList.toggle('hidden', !canRequestAdmin() || !isOwnAssignedTask || task.status === 'Concluida');
     openModal('detailsModal');
@@ -1071,44 +1076,22 @@ let currentUser = null;
   }
 
   function canRequestAdmin() {
-    return currentUser?.perfil === 'Solicitante';
-  }
-
-  async function loadRequestAdmins() {
-    if (!canRequestAdmin()) return [];
-    if (!requestAdmins.length) requestAdmins = await callServer('getRequestAdmins', currentUser.email);
-    return requestAdmins;
+    return currentUser?.perfil === 'Analista';
   }
 
   async function openAdminRequest(task = null) {
-    if (!canRequestAdmin()) {
-      showToast('Seu perfil nao permite enviar pedidos ao admin.');
-      return;
-    }
-
-    const admins = await loadRequestAdmins();
-    if (!admins.length) {
-      showToast('Nenhum admin cadastrado para receber pedidos.');
-      return;
-    }
-
-    const form = $('#requestAdminForm');
-    form.reset();
-    form.elements.taskId.value = task?.id || '';
-    form.elements.adminEmail.innerHTML = admins
-      .map((admin) => `<option value="${escapeHtml(admin.email)}">${escapeHtml(admin.nome)}</option>`)
-      .join('');
-    form.elements.titulo.value = task ? task.titulo : '';
-    form.elements.prioridade.value = task?.prioridade || 'Media';
-    form.elements.dataPrazo.value = toDateKey(new Date());
-    setTimeField(form, 'horarioPrazo', '');
-    if (task) {
-      form.elements.descricao.placeholder = 'Explique o que precisa para concluir esta tarefa';
-    } else {
-      form.elements.descricao.placeholder = 'Explique o que precisa do admin';
-    }
-    closeModals();
-    openModal('requestAdminModal');
+    if (!canRequestAdmin()) return;
+    const recipients=await callServer('getAllowedTaskRecipients',currentUser.email);
+    if(!recipients.length) {showToast('Nenhum destinatário liberado. Peça ao administrador para selecionar as pessoas no seu cadastro.');return;}
+    const form=$('#requestAdminForm');form.reset();
+    form.elements.recipientId.innerHTML=recipients.map(person=>`<option value="${escapeHtml(person.id)}">${escapeHtml(person.nome)} · ${escapeHtml(person.perfil)}</option>`).join('');
+    form.elements.titulo.value=task?.titulo || '';
+    form.elements.descricao.value=task?.descricao || '';
+    form.elements.prioridade.value=task?.prioridade || 'Media';
+    form.elements.dataPrazo.value=toDateKey(new Date());
+    setTimeField(form,'horarioPrazo','');
+    $('#assignmentError').classList.add('hidden');
+    closeModals();openModal('requestAdminModal');
   }
 
   async function loadComments(taskId) {
@@ -1240,13 +1223,13 @@ let currentUser = null;
   }
 
   async function handleCreateAdminRequest(event) {
-    event.preventDefault();
-    await callServer('createAdminRequest', formToObject(event.target), currentUser.email);
-    event.target.reset();
-    closeModals();
-    showToast('Pedido enviado ao admin.');
-    employeeTaskFilter = 'all'; taskSearch = ''; $('#taskSearch').value = '';
-    await loadEmployee(false);
+    event.preventDefault();if(assignmentSavePending)return;
+    const form=event.target,button=form.querySelector('button[type=submit]'),errorBox=$('#assignmentError');
+    errorBox.classList.add('hidden');assignmentSavePending=true;button.disabled=true;button.textContent='Enviando…';
+    try {await callServer('createAssignedTask',formToObject(form),currentUser.email);}
+    catch(error){errorBox.textContent=error.message;errorBox.classList.remove('hidden');return;}
+    finally {assignmentSavePending=false;button.disabled=false;button.textContent='Criar tarefa';}
+    form.reset();closeModals();showToast('Tarefa criada e enviada.');await loadEmployee(false);
   }
 
   async function handleDeleteEmployeeTemplate(templateId) {
@@ -1261,6 +1244,7 @@ let currentUser = null;
   async function handleRegisterUser(event) {
     event.preventDefault();
     const data = formToObject(event.target);
+    data.destinatariosPermitidos=data.perfil==='Analista'?Array.from(event.target.querySelectorAll('[name=recipientPermission]:checked'),input=>input.value):[];
     if (data.id) {
       const updatedUser = await callServer('updateUser', data.id, data);
       if (normalizeEmailClient(data.emailOriginal || currentUser.email) === normalizeEmailClient(currentUser.email)) {
@@ -1360,7 +1344,7 @@ let currentUser = null;
   }
 
   function closeModals() {
-    if (taskSavePending || ownTaskSavePending || (typeof recurrenceSaving !== 'undefined' && recurrenceSaving)) return;
+    if (taskSavePending || ownTaskSavePending || assignmentSavePending || (typeof recurrenceSaving !== 'undefined' && recurrenceSaving)) return;
     $$('.modal').forEach(modal => modal.classList.add('hidden'));
     document.body.classList.remove('modal-open');
     if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
@@ -1466,10 +1450,10 @@ let currentUser = null;
       const oldStatus = knownRequestStatuses.get(task.id);
       if (oldStatus && oldStatus !== task.status) {
         const message = `${task.titulo} agora esta ${task.status}.`;
-        startTitleAlert('Pedido atualizado!');
-        showTaskAlert('Pedido atualizado pelo admin', message);
+        startTitleAlert('Tarefa atualizada!');
+        showTaskAlert('Tarefa enviada atualizada', message);
         playNotificationSound();
-        showBrowserStatusNotification('Pedido atualizado pelo admin', message, `pedido-${task.id}-${task.status}`);
+        showBrowserStatusNotification('Tarefa enviada atualizada', message, `tarefa-enviada-${task.id}-${task.status}`);
       }
       knownRequestStatuses.set(task.id, task.status);
     });
@@ -1693,4 +1677,12 @@ let currentUser = null;
 
   function normalizeEmailClient(email) {
     return String(email || '').trim().toLowerCase();
+  }
+
+  function taskSenderName(task) { return task.criadoPorNome || 'Autoria não registrada'; }
+  function renderAnalystPermissions(selectedIds) {
+    const form=$('#userForm');
+    $('#analystPermissions').hidden=form.elements.perfil.value!=='Analista';
+    const options=(adminData.usuarios || []).filter(user=>['Admin','Colaborador'].includes(user.perfil) && user.id!==form.elements.id.value);
+    $('#analystRecipientOptions').innerHTML=options.map(user=>`<label class="recipient-permission"><input type="checkbox" name="recipientPermission" value="${escapeHtml(user.id)}" ${selectedIds.includes(user.id)?'checked':''}><span><strong>${escapeHtml(user.nome)}</strong><small>${escapeHtml(user.perfil)} · ${escapeHtml(user.workspace || '')}</small></span></label>`).join('') || '<p>Nenhum administrador ou colaborador disponível.</p>';
   }

@@ -6,6 +6,7 @@ import { initDb, makeId, pool, query } from './db.js';
 import { DEFAULT_NOTIFICATION_SETTINGS, validateNotificationSettings } from './notification-settings.js';
 import { initPush, createPushService } from './push.js';
 import { initTaskOwnership } from './task-ownership.js';
+import { initAnalysts, saveAnalystRecipients } from './analysts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -25,6 +26,7 @@ export async function init() {
   initializationPromise = (async () => {
     await initDb();
     await initTaskOwnership(query);
+    await initAnalysts(query);
     await initPush(query);
     initialized = true;
   })().catch(error => { initializationPromise = null; throw error; });
@@ -121,14 +123,15 @@ function sanitizeUser(row) {
     id: row.id,
     nome: row.nome,
     email: row.email,
-    perfil: row.perfil,
+    perfil: row.perfil === 'Solicitante' ? 'Analista' : row.perfil,
+    destinatariosPermitidos: row.destinatarios_permitidos || [],
     workspace: row.workspace,
   };
 }
 
 function normalizeProfile(profile) {
   if (profile === 'Admin') return 'Admin';
-  if (profile === 'Solicitante') return 'Solicitante';
+  if (profile === 'Analista' || profile === 'Solicitante') return 'Analista';
   return 'Colaborador';
 }
 
@@ -185,6 +188,7 @@ function formatTask(row) {
     status: row.status,
     atribuidoPara: row.atribuido_para,
     criadoPor: row.criado_por || '',
+    criadoPorNome: row.criado_por_nome || (row.tipo === 'Diaria' && !row.criado_por ? 'Sistema' : 'Autoria não registrada'),
     solicitadoPor: row.solicitado_por || '',
     tarefaOrigemId: row.tarefa_origem_id || '',
     tipo: row.tipo,
@@ -305,22 +309,19 @@ export async function createWorkspace(workspaceData) {
 }
 
 export async function registerUser(userData) {
-  requireFields(userData, ['nome', 'email', 'senha', 'perfil', 'workspace']);
+  requireFields(userData, ['nome','email','senha','perfil','workspace']);
   await ensureWorkspaceExists(userData.workspace);
-  const result = await query(
-    `INSERT INTO usuarios (id, nome, email, senha, perfil, workspace)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [
-      makeId('USR'),
-      userData.nome,
-      normalizeEmail(userData.email),
-      String(userData.senha),
-      normalizeProfile(userData.perfil),
-      userData.workspace,
-    ],
-  );
-  return sanitizeUser(result.rows[0]);
+  const client=await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result=await client.query(
+      'INSERT INTO usuarios(id,nome,email,senha,perfil,workspace) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
+      [makeId('USR'),userData.nome,normalizeEmail(userData.email),String(userData.senha),normalizeProfile(userData.perfil),userData.workspace]);
+    await saveAnalystRecipients(client.query.bind(client),result.rows[0].id,normalizeProfile(userData.perfil),userData.destinatariosPermitidos || []);
+    await client.query('COMMIT');
+    return sanitizeUser({...result.rows[0],destinatarios_permitidos:userData.destinatariosPermitidos || []});
+  } catch(error) {await client.query('ROLLBACK');throw error;}
+  finally {client.release();}
 }
 
 export async function updateUser(userId, userData) {
@@ -362,13 +363,16 @@ export async function updateUser(userId, userData) {
       await client.query('UPDATE tarefas SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
       await client.query('UPDATE templates_diarios SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
       await client.query('UPDATE tarefas SET criado_por = $2 WHERE criado_por = $1', [oldEmail, newEmail]);
+      await client.query('UPDATE tarefas SET solicitado_por = $2 WHERE solicitado_por = $1', [oldEmail, newEmail]);
       await client.query('UPDATE templates_diarios SET criado_por = $2 WHERE criado_por = $1', [oldEmail, newEmail]);
       await client.query('UPDATE comentarios SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
       await client.query('UPDATE historico SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
     }
 
+    await client.query('UPDATE tarefas SET criado_por_nome=$2 WHERE criado_por=$1',[newEmail,userData.nome]);
+    await saveAnalystRecipients(client.query.bind(client),userId,normalizeProfile(userData.perfil),userData.destinatariosPermitidos);
     await client.query('COMMIT');
-    return sanitizeUser(result.rows[0]);
+    return sanitizeUser({...result.rows[0],destinatarios_permitidos:userData.destinatariosPermitidos || []});
   } catch (error) {
     await client.query('ROLLBACK');
     if (String(error.message || '').includes('duplicate key')) {
@@ -421,8 +425,8 @@ export async function createTask(taskData) {
   const status = taskData.status || 'Pendente';
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, solicitado_por, tarefa_origem_id, tipo, data_conclusao, criado_por)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, $10, $11, 'Manual', $12, $13)
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, solicitado_por, tarefa_origem_id, tipo, data_conclusao, criado_por, criado_por_nome)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, $10, $11, 'Manual', $12, $13, (SELECT nome FROM usuarios WHERE email=$13))
      RETURNING *`,
     [
       makeId('TSK'),
@@ -456,69 +460,30 @@ export async function createEmployeeTask(taskData, userEmail) {
   });
 }
 
-export async function getRequestAdmins(userEmail) {
-  const user = await getUserByEmail(userEmail);
-  if (!user) throw new Error('Usuario nao encontrado.');
-  const result = await query(`
-    SELECT *
-    FROM usuarios
-    WHERE perfil = 'Admin'
-    ORDER BY
-      CASE WHEN LOWER(nome) LIKE 'joab%' THEN 0 ELSE 1 END,
-      nome
-  `);
+export async function getAllowedTaskRecipients(userEmail) {
+  const result=await query(`SELECT recipient.id,recipient.nome,recipient.email,recipient.perfil,recipient.workspace
+    FROM analyst_recipients permissions JOIN usuarios analyst ON analyst.id=permissions.analyst_id
+    JOIN usuarios recipient ON recipient.id=permissions.recipient_id
+    WHERE analyst.email=$1 AND analyst.perfil='Analista' AND recipient.perfil IN ('Admin','Colaborador')
+    ORDER BY recipient.nome,recipient.id`,[normalizeEmail(userEmail)]);
   return result.rows.map(sanitizeUser);
 }
 
-export async function createAdminRequest(requestData, userEmail) {
-  requireFields(requestData, ['adminEmail', 'titulo', 'descricao', 'prioridade', 'dataPrazo']);
-  const requester = await getUserByEmail(userEmail);
-  if (!requester) throw new Error('Usuario nao encontrado.');
-  if (requester.perfil !== 'Solicitante') {
-    throw new Error('Seu perfil nao permite enviar pedidos ao admin.');
-  }
-
-  const admin = await getUserByEmail(requestData.adminEmail);
-  if (!admin || admin.perfil !== 'Admin') throw new Error('Admin responsavel nao encontrado.');
-
-  const sourceTaskId = String(requestData.taskId || '').trim();
-  let sourceTask = null;
-  if (sourceTaskId) {
-    sourceTask = await getTaskForUser(sourceTaskId, userEmail);
-  }
-
-  const descriptionParts = [
-    `Pedido feito por: ${requester.nome} (${requester.email})`,
-    sourceTask ? `Tarefa original: ${sourceTask.titulo} (${sourceTask.id})` : '',
-    '',
-    String(requestData.descricao || '').trim(),
-  ].filter((part) => part !== '');
-
-  const task = await createTask({
-    workspace: admin.workspace || requester.workspace,
-    titulo: `Pedido: ${requestData.titulo}`,
-    descricao: descriptionParts.join('\n'),
-    prioridade: requestData.prioridade || 'Media',
-    dataPrazo: requestData.dataPrazo,
-    horarioPrazo: requestData.horarioPrazo,
-    atribuidoPara: admin.email,
-    solicitadoPor: requester.email,
-    tarefaOrigemId: sourceTask?.id || '',
-    status: 'Pendente',
-    autorEmail: requester.email,
-  });
-
-  if (sourceTask) {
-    const note = `Pedido enviado para ${admin.nome} (${admin.email}): ${requestData.descricao}`;
-    await addHistory(sourceTask.id, requester.email, 'Pediu acao ao admin', note);
-    await query(
-      `INSERT INTO comentarios (id, task_id, autor_email, mensagem)
-       VALUES ($1, $2, $3, $4)`,
-      [makeId('COM'), sourceTask.id, requester.email, note],
-    );
-  }
-
-  return task;
+export async function createAssignedTask(data,userEmail) {
+  requireFields(data,['recipientId','titulo','prioridade','dataPrazo']);
+  if(!['Baixa','Media','Alta','Urgente'].includes(data.prioridade)) throw Error('Prioridade inválida.');
+  const result=await query(`INSERT INTO tarefas(id,workspace,titulo,descricao,prioridade,data_prazo,horario_prazo,status,
+      atribuido_para,solicitado_por,tipo,criado_por,criado_por_nome)
+    SELECT $1,recipient.workspace,$4,$5,$6,$7::date,$8::time,'Pendente',recipient.email,analyst.email,'Manual',analyst.email,analyst.nome
+    FROM analyst_recipients permissions JOIN usuarios analyst ON analyst.id=permissions.analyst_id
+    JOIN usuarios recipient ON recipient.id=permissions.recipient_id
+    WHERE analyst.email=$2 AND analyst.perfil='Analista' AND recipient.id=$3
+      AND recipient.perfil IN ('Admin','Colaborador') RETURNING *`,
+    [makeId('TSK'),normalizeEmail(userEmail),data.recipientId,String(data.titulo).trim(),String(data.descricao || ''),
+      data.prioridade,data.dataPrazo,normalizeTime(data.horarioPrazo)]);
+  if(!result.rowCount) throw Error('Você não tem permissão para criar tarefas para essa pessoa. Peça ao administrador para atualizar seu cadastro.');
+  await addHistory(result.rows[0].id,normalizeEmail(userEmail),'Criou tarefa',String(data.titulo).trim());
+  return formatTask(result.rows[0]);
 }
 
 export async function updateTask(taskId, taskData) {
@@ -600,19 +565,19 @@ export async function updateTaskStatus(taskId, newStatus, userEmail, completionN
 export async function getEmployeeTasks(userEmail) {
   await generateDailyTasks();
   const result = await query(
-    'SELECT * FROM tarefas WHERE atribuido_para = $1 ORDER BY data_prazo ASC, horario_prazo ASC NULLS LAST, data_criacao ASC',
+    `SELECT t.*,COALESCE(u.nome,t.criado_por_nome) AS criado_por_nome FROM tarefas t LEFT JOIN usuarios u ON u.email=t.criado_por WHERE t.atribuido_para=$1 ORDER BY t.data_prazo,t.horario_prazo NULLS LAST,t.data_criacao`,
     [normalizeEmail(userEmail)],
   );
   return result.rows.map(formatTask);
 }
 
-export async function getMyAdminRequests(userEmail) {
+export async function getSentTasks(userEmail) {
   const user = await getUserByEmail(userEmail);
   if (!user) throw new Error('Usuario nao encontrado.');
   const result = await query(
-    `SELECT * FROM tarefas
-     WHERE solicitado_por = $1
-     ORDER BY data_criacao DESC, data_prazo ASC, horario_prazo ASC NULLS LAST`,
+    `SELECT t.*,COALESCE(u.nome,t.criado_por_nome) AS criado_por_nome FROM tarefas t LEFT JOIN usuarios u ON u.email=t.criado_por
+     WHERE t.solicitado_por=$1 OR (t.criado_por=$1 AND t.atribuido_para<>$1)
+     ORDER BY t.data_criacao DESC,t.data_prazo,t.horario_prazo NULLS LAST`,
     [normalizeEmail(userEmail)],
   );
   return result.rows.map(formatTask);
@@ -621,8 +586,8 @@ export async function getMyAdminRequests(userEmail) {
 export async function getAdminDashboardData() {
   await generateDailyTasks();
   const [tasksResult, usersResult, workspaces, templatesResult] = await Promise.all([
-    query('SELECT * FROM tarefas ORDER BY data_prazo ASC, horario_prazo ASC NULLS LAST, data_criacao ASC'),
-    query('SELECT * FROM usuarios ORDER BY nome'),
+    query('SELECT t.*,COALESCE(u.nome,t.criado_por_nome) AS criado_por_nome FROM tarefas t LEFT JOIN usuarios u ON u.email=t.criado_por ORDER BY t.data_prazo,t.horario_prazo NULLS LAST,t.data_criacao'),
+    query(`SELECT u.*,ARRAY(SELECT recipient_id FROM analyst_recipients WHERE analyst_id=u.id) AS destinatarios_permitidos FROM usuarios u ORDER BY nome`),
     getWorkspaces(),
     query('SELECT * FROM templates_diarios ORDER BY titulo, id'),
   ]);
@@ -777,8 +742,8 @@ async function createTaskFromTemplate(template, dateKey) {
 
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, origem_template_id, criado_por)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria', $9, $10)
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, origem_template_id, criado_por, criado_por_nome)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria', $9, $10, (SELECT nome FROM usuarios WHERE email=$10))
      RETURNING *`,
     [
       makeId('TSK'),
@@ -970,8 +935,8 @@ const rpc = {
   createWorkspace,
   createTask,
   createEmployeeTask,
-  getRequestAdmins,
-  createAdminRequest,
+  getAllowedTaskRecipients,
+  createAssignedTask,
   updateTask,
   updateOwnTask,
   deleteTask,
@@ -979,7 +944,7 @@ const rpc = {
   updateUser,
   deleteUser,
   getEmployeeTasks,
-  getMyAdminRequests,
+  getSentTasks,
   updateTaskStatus,
   createDailyTemplate,
   updateDailyTemplate,
@@ -1016,9 +981,9 @@ const adminOnly = new Set([
 
 const emailArgIndex = {
   getEmployeeTasks: 0,
-  getMyAdminRequests: 0,
-  getRequestAdmins: 0,
-  createAdminRequest: 1,
+  getSentTasks: 0,
+  getAllowedTaskRecipients: 0,
+  createAssignedTask: 1,
   getEmployeeDailyTemplates: 0,
   createEmployeeDailyTemplate: 1,
   createEmployeeTask: 1,
@@ -1042,17 +1007,18 @@ function authorizeRpc(functionName, args, req) {
   if (index !== undefined && user.perfil !== 'Admin' && normalizeEmail(args[index]) !== normalizeEmail(user.email)) {
     throw new Error('Voce so pode acessar dados do proprio usuario.');
   }
-  if (['getRequestAdmins', 'createAdminRequest'].includes(functionName) && normalizeEmail(args[emailArgIndex[functionName]]) !== normalizeEmail(user.email)) {
-    throw new Error('Solicitante invalido.');
+  if (['getAllowedTaskRecipients', 'createAssignedTask'].includes(functionName) && normalizeEmail(args[emailArgIndex[functionName]]) !== normalizeEmail(user.email)) {
+    throw new Error('Usuário inválido.');
   }
   if (functionName === 'deleteUser' && normalizeEmail(args[1]) !== normalizeEmail(user.email)) {
-    throw new Error('Solicitante invalido.');
+    throw new Error('Usuário inválido.');
   }
   // Creation ownership always comes from the signed session, never the form.
   if (['createTask','createDailyTemplate'].includes(functionName)) args[0] = {...args[0],autorEmail:user.email};
   if (functionName === 'updateTask') args[1] = {...args[1],autorEmail:user.email};
   if (['createEmployeeTask','createEmployeeDailyTemplate'].includes(functionName)) args[1] = user.email;
   if (functionName === 'updateOwnTask') args[2] = user.email;
+  if (functionName === 'createAssignedTask') args[1] = user.email;
 }
 
 export function createApp() {
@@ -1089,7 +1055,7 @@ export function createApp() {
       const args = req.body.args || [];
       authorizeRpc(req.params.functionName, args, req);
       const result = await fn(...args);
-      if (['createTask','createEmployeeTask','createAdminRequest','updateTask','updateOwnTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
+      if (['createTask','createEmployeeTask','createAssignedTask','updateTask','updateOwnTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
         void pushService.dispatch().catch(() => console.error('Falha ao despachar notificações; a fila será reprocessada.'));
       }
       res.json({ ok: true, result });

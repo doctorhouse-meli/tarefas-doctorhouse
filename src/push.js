@@ -42,7 +42,7 @@ export async function initPush(query) {
         END IF;
         IF NEW.status IS DISTINCT FROM OLD.status AND NEW.solicitado_por IS NOT NULL THEN
           INSERT INTO push_outbox(endpoint,user_email,task_id,title)
-            SELECT endpoint,user_email,NEW.id,'Seu pedido foi atualizado' FROM push_subscriptions WHERE user_email = NEW.solicitado_por;
+            SELECT endpoint,user_email,NEW.id,'Uma tarefa enviada foi atualizada' FROM push_subscriptions WHERE user_email = NEW.solicitado_por;
         END IF;
         IF COALESCE(NEW.obs_conclusao,'') <> '' AND NEW.obs_conclusao IS DISTINCT FROM OLD.obs_conclusao THEN
           INSERT INTO push_outbox(endpoint,user_email,task_id,title)

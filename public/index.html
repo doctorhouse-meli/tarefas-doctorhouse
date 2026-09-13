@@ -14,9 +14,9 @@
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-16">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-16">
-    <link rel="stylesheet" href="/mobile.css?v=20260913-16">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-17">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-17">
+    <link rel="stylesheet" href="/mobile.css?v=20260913-17">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
@@ -256,7 +256,7 @@
             <div id="employeeTaskFilters" class="hidden"></div>
             <div class="sidebar-tools">
               <button id="openEmployeeTemplatesBtn" class="sidebar-link">↻ <span>Tarefas diárias</span></button>
-              <button id="openRequestAdminBtn" type="button" class="sidebar-link hidden">↗ <span>Pedir ao admin</span></button>
+              <button id="openRequestAdminBtn" type="button" class="sidebar-link hidden">↗ <span>Criar tarefa para alguém</span></button>
               <button id="openAdminControlBtn" type="button" class="sidebar-link hidden">▦ <span>Gestão da equipe</span></button>
             </div>
             <p class="sidebar-note">Um passo de cada vez.<br>Seu trabalho, em ordem.</p>
@@ -436,11 +436,16 @@
           <input name="senha" type="password" placeholder="Senha" class="input">
           <select name="perfil" required class="input">
             <option>Colaborador</option>
-            <option>Solicitante</option>
+            <option>Analista</option>
             <option>Admin</option>
           </select>
           <select name="workspace" required class="input workspaceSelect"></select>
         </div>
+        <fieldset id="analystPermissions" class="analyst-permissions" hidden>
+          <legend>Para quem esta analista pode criar tarefas?</legend>
+          <p>Marque os administradores e colaboradores permitidos. Sem seleção, ela só cria tarefas para si.</p>
+          <div id="analystRecipientOptions" class="recipient-options"></div>
+        </fieldset>
         <div class="mt-5 flex justify-end gap-2">
           <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
           <button class="rounded-md bg-slate-900 px-3 py-2 text-white">Salvar</button>
@@ -467,9 +472,10 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h2 id="detailsTitle" class="text-lg font-semibold"></h2>
+            <p id="detailsSender" class="task-sender"></p>
             <p id="detailsDescription" class="mt-2 text-sm text-slate-600"></p>
           </div>
-          <button id="requestFromDetailsBtn" type="button" class="employee-action-btn is-request hidden">Pedir ao admin</button>
+          <button id="requestFromDetailsBtn" type="button" class="employee-action-btn is-request hidden">Criar tarefa para alguém</button>
         </div>
         <div class="mt-4 grid gap-4 lg:grid-cols-3">
           <section class="rounded-lg bg-slate-50 p-3">
@@ -501,13 +507,12 @@
 
     <div id="requestAdminModal" class="modal hidden">
       <form id="requestAdminForm" class="modal-panel">
-        <h2 class="text-lg font-semibold">Pedido para admin</h2>
-        <p class="mt-1 text-sm text-slate-500">Use quando precisa que um admin libere, resolva ou faca algo para voce continuar.</p>
-        <input name="taskId" type="hidden">
+        <h2 class="text-lg font-semibold">Criar tarefa para alguém</h2>
+        <p class="mt-1 text-sm text-slate-500">Escolha uma pessoa liberada no seu cadastro. Ela receberá uma tarefa normal.</p>
         <div class="mt-4 grid gap-3">
-          <select name="adminEmail" required class="input"></select>
-          <input name="titulo" required placeholder="Titulo do pedido" class="input">
-          <textarea name="descricao" required placeholder="Explique o que precisa do admin" class="input"></textarea>
+          <label class="field-label">Responsável<select name="recipientId" required class="input"></select></label>
+          <input name="titulo" required placeholder="Título da tarefa" class="input">
+          <textarea name="descricao" placeholder="Descrição da tarefa" class="input"></textarea>
           <select name="prioridade" required class="input">
             <option>Baixa</option><option selected>Media</option><option>Alta</option><option>Urgente</option>
           </select>
@@ -520,8 +525,9 @@
         </div>
         <div class="mt-5 flex justify-end gap-2">
           <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
-          <button class="rounded-md bg-slate-900 px-3 py-2 text-white">Enviar pedido</button>
+          <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-white">Criar tarefa</button>
         </div>
+        <p id="assignmentError" class="hidden mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert"></p>
       </form>
     </div>
 
@@ -573,12 +579,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-16"></script>
-    <script src="/admin-recurrences.js?v=20260913-16"></script>
-    <script src="/notification-sounds.js?v=20260913-16"></script>
-    <script src="/app.js?v=20260913-16"></script>
-  <script src="/workspace.js?v=20260913-16"></script>
-  <script src="/task-creator.js?v=20260913-16"></script>
+    <script src="/pwa.js?v=20260913-17"></script>
+    <script src="/admin-recurrences.js?v=20260913-17"></script>
+    <script src="/notification-sounds.js?v=20260913-17"></script>
+    <script src="/app.js?v=20260913-17"></script>
+  <script src="/workspace.js?v=20260913-17"></script>
+  <script src="/task-creator.js?v=20260913-17"></script>
   </body>
 </html>
 

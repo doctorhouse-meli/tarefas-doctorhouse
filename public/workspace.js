@@ -29,7 +29,7 @@ function initWorkspaceUI() {
     renderEmployeeSummary(currentEmployeeTasks);
     renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
   });
-  const labels = { titulo: 'Título', descricao: 'Descrição', prioridade: 'Prioridade', dataPrazo: 'Prazo', status: 'Status', atribuidoPara: 'Responsável', workspace: 'Workspace', nome: 'Nome', email: 'E-mail', senha: 'Senha', perfil: 'Perfil de acesso', adminEmail: 'Administrador', obsConclusao: 'Observação de conclusão (opcional)' };
+  const labels = { titulo: 'Título', descricao: 'Descrição', prioridade: 'Prioridade', dataPrazo: 'Prazo', status: 'Status', atribuidoPara: 'Responsável', workspace: 'Workspace', nome: 'Nome', email: 'E-mail', senha: 'Senha', perfil: 'Perfil de acesso', recipientId: 'Responsável', obsConclusao: 'Observação de conclusão (opcional)' };
   $$('.modal input:not([type=hidden]):not([type=checkbox]), .modal textarea, .modal select').forEach((input, index) => {
     if (input.closest('label') || input.closest('.time-select') || input.closest('#commentForm, #checklistForm')) return;
     input.id ||= `field-${index}`;
