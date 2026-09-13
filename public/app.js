@@ -1126,7 +1126,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     if(selectedTask?.id!==taskId)return;
     $('#historyList').innerHTML = history.map((item) => `
       <div class="rounded-md bg-white p-2 ring-1 ring-slate-200">
-        <p class="text-xs font-bold text-slate-500">${escapeHtml(item.dataHora)} | ${escapeHtml(item.autorEmail)}</p>
+        <p class="text-xs font-bold text-slate-500">${escapeHtml(item.dataHora)} | ${escapeHtml(item.autorNome || item.autorEmail)}</p>
         <p class="mt-1 text-sm font-black">${escapeHtml(item.acao)}</p>
         <p class="text-xs text-slate-500">${escapeHtml(item.detalhes || '')}</p>
       </div>

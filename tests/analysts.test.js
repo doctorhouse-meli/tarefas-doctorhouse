@@ -64,6 +64,7 @@ test('PostgreSQL: migração para dois perfis, permissões, escopo, encaminhamen
   await gate('updateOwnTask',['legacy',editData,'carla@test']);
   const edited=await context.updateOwnTask('legacy',editData,'carla@test');
   assert.equal(edited.titulo,editData.titulo);assert.equal(edited.criadoPor,'ana.nova@test');
+  const history=await context.getTaskHistory('legacy');assert.equal(history.find(item=>item.acao==='Editou tarefa').autorNome,'Carla');
   await assert.rejects(gate('deleteTask',['legacy','carla@test']),/não permite/);
   await saveUserPermissions(query,'col',{excluirTarefas:true,encaminharTarefas:true});
   await gate('deleteTask',['legacy','carla@test']);

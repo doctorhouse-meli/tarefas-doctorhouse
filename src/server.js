@@ -242,6 +242,7 @@ function formatChecklistItem(row) {
 
 function formatHistoryItem(row) {
   return {
+    autorNome: row.autor_nome || (['sistema','system'].includes(normalizeEmail(row.autor_email)) ? 'Sistema' : row.autor_email || 'Usuário não cadastrado'),
     id: row.id,
     taskId: row.task_id,
     autorEmail: row.autor_email,
@@ -916,7 +917,7 @@ export async function deleteChecklistItem(itemId, userEmail) {
 }
 
 export async function getTaskHistory(taskId) {
-  const result = await query('SELECT * FROM historico WHERE task_id = $1 ORDER BY data_hora DESC', [taskId]);
+  const result = await query('SELECT h.*,u.nome AS autor_nome FROM historico h LEFT JOIN usuarios u ON u.email=LOWER(TRIM(h.autor_email)) WHERE h.task_id=$1 ORDER BY h.data_hora DESC,h.id DESC', [taskId]);
   return result.rows.map(formatHistoryItem);
 }
 
