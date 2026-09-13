@@ -62,7 +62,7 @@ function updateCreatorRecurrence() {
   document.querySelector('#creatorSubmit').textContent = recurring ? 'Criar tarefa recorrente' : 'Criar tarefa';
   const weekday = document.querySelector('#creatorWeekday').selectedOptions[0].textContent;
   const names = { daily:'Todos os dias, incluindo sábado e domingo.', weekdays:'De segunda a sexta-feira.', weekly:`Toda semana, ${weekday.toLowerCase()}.`, custom:'Toda semana, nos dias selecionados.', none:'Uma única tarefa, no prazo escolhido.' };
-  document.querySelector('#creatorRepeatSummary').textContent = names[mode] + (recurring ? ' A programação vale a partir de hoje. A tarefa de hoje será criada se hoje fizer parte da repetição. Continua até a programação ser excluída em Tarefas diárias do responsável.' : '');
+  document.querySelector('#creatorRepeatSummary').textContent = names[mode] + (recurring ? ' A programação vale a partir de hoje. A tarefa de hoje será criada se hoje fizer parte da repetição. Você pode editar ou excluir a programação em Tarefas com repetição.' : '');
   document.querySelector('#creatorError').classList.add('hidden');
 }
 

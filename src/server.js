@@ -658,6 +658,29 @@ export async function createDailyTemplate(templateData) {
   return formatTemplate(result.rows[0]);
 }
 
+export async function updateDailyTemplate(templateId, data) {
+  requireFields(data, ['workspace', 'titulo', 'prioridade', 'atribuidoPara', 'diasSemana']);
+  if (!['Baixa', 'Media', 'Alta', 'Urgente'].includes(data.prioridade)) throw new Error('Prioridade inválida.');
+  if (!String(data.diasSemana).split(',').every(day => /^[0-6]$/.test(day.trim()))) throw new Error('Dias da semana inválidos.');
+  await ensureWorkspaceExists(data.workspace);
+  if (!await getUserByEmail(data.atribuidoPara)) throw new Error('Responsável não encontrado.');
+  const result = await query(
+    `UPDATE templates_diarios SET workspace = $2, titulo = $3, descricao = $4,
+      prioridade = $5, atribuido_para = $6, horario_prazo = $7::time, dias_semana = $8
+      WHERE id = $1 RETURNING *`,
+    [templateId, data.workspace, String(data.titulo).trim(), data.descricao || '', data.prioridade,
+      normalizeEmail(data.atribuidoPara), normalizeTime(data.horarioPrazo), normalizeWeekdays(data.diasSemana)],
+  );
+  if (!result.rowCount) throw new Error('Repetição não encontrada. Atualize a lista.');
+  return formatTemplate(result.rows[0]);
+}
+
+export async function deleteDailyTemplate(templateId) {
+  const result = await query('DELETE FROM templates_diarios WHERE id = $1 RETURNING id', [templateId]);
+  if (!result.rowCount) throw new Error('Repetição não encontrada. Atualize a lista.');
+  return { deleted: true };
+}
+
 export async function getEmployeeDailyTemplates(userEmail) {
   const result = await query(
     'SELECT * FROM templates_diarios WHERE atribuido_para = $1 ORDER BY titulo',
@@ -911,6 +934,8 @@ const rpc = {
   getMyAdminRequests,
   updateTaskStatus,
   createDailyTemplate,
+  updateDailyTemplate,
+  deleteDailyTemplate,
   getEmployeeDailyTemplates,
   createEmployeeDailyTemplate,
   deleteEmployeeDailyTemplate,
@@ -936,6 +961,8 @@ const adminOnly = new Set([
   'updateUser',
   'deleteUser',
   'createDailyTemplate',
+  'updateDailyTemplate',
+  'deleteDailyTemplate',
   'generateDailyTasks',
 ]);
 

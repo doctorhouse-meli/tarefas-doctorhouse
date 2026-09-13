@@ -46,3 +46,34 @@ test('preferências em edição sobrevivem ao polling; volume zero não toca áu
   assert.equal(await vm.runInContext("playNotificationSound({sound:'alert-1',volume:0,repeat:3})",context),true);
   assert.equal(await vm.runInContext("playNotificationSound({sound:'none',volume:100,repeat:3})",context),true);
 });
+
+test('memes respeitam volume, repetição, interrupção e fallback quando indisponíveis', async () => {
+  const clips = [];
+  let fallback = 0;
+  class Audio {
+    constructor(url) { this.url=url; this.plays=0; clips.push(this); }
+    play() { this.plays++; return Promise.resolve(); }
+    pause() { this.paused=true; }
+  }
+  const status={textContent:''};
+  const context=vm.createContext({Audio,document:{querySelector:()=>status},audioContext:{state:'running'},unlockNotificationSound(){},playLegacyNotificationSound(){fallback++;}});
+  vm.runInContext(fs.readFileSync(new URL('../public/notification-sounds.js',import.meta.url),'utf8'),context);
+  for(const id of ['meme-faaah','meme-aura','meme-pix','meme-magnata','meme-bruh']) {
+    assert.equal(validateNotificationSettings({sound:id,volume:30,repeat:2}).sound,id);
+    await vm.runInContext(`playNotificationSound({sound:'${id}',volume:30,repeat:2})`,context);
+    const clip=clips.at(-1);
+    assert.equal(clip.volume,0.3);
+    clip.onended();
+    assert.equal(clip.plays,2);
+    clip.onended();
+    assert.equal(clip.onended,null);
+  }
+  await vm.runInContext("playNotificationSound({sound:'meme-bruh',volume:30,repeat:3})",context);
+  const interrupted=clips.at(-1);
+  vm.runInContext('stopNotificationSound()',context);
+  assert.equal(interrupted.paused,true);
+  assert.equal(interrupted.onended,null);
+  await vm.runInContext("playNotificationSound({sound:'meme-bruh',volume:30,repeat:1})",context);
+  clips.at(-1).onerror();
+  assert.equal(fallback,1);
+});

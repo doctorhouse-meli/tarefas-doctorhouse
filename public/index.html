@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-08">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-09">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -72,6 +72,7 @@
 <section data-admin-panel="sounds" class="panel-card sound-settings hidden" aria-labelledby="soundSettingsTitle">
 <h2 id="soundSettingsTitle">Sons dos avisos</h2>
 <p>Escolha o aviso de novas tarefas para toda a equipe. Ouça as opções antes de salvar.</p>
+<p>Novos memes: FAAAH, Você não tem aura, E o Pix?, Bom dia, magnata e Bruh. Os memes precisam de internet; se o áudio falhar, o aviso usa o som original.</p>
 <form id="soundSettingsForm">
 <fieldset id="soundChoices"><legend>Som da notificação</legend><div id="soundOptions" class="sound-options"></div></fieldset>
 <div class="sound-controls"><label for="soundVolume">Volume: <output id="soundVolumeValue" for="soundVolume">70%</output><input id="soundVolume" type="range" min="0" max="100" value="70"></label>
@@ -518,12 +519,35 @@
       </div>
     </div>
 
+    <div id="recurrenceEditModal" class="modal hidden">
+      <form id="recurrenceEditForm" class="modal-panel recurrence-editor">
+        <h2>Editar repetição</h2>
+        <p>As alterações valem para as próximas tarefas geradas. As tarefas já criadas mantêm seus dados.</p>
+        <fieldset id="recurrenceEditFields">
+          <label class="field-label">Título *<input name="titulo" class="input" required></label>
+          <label class="field-label">Descrição<textarea name="descricao" class="input" rows="3"></textarea></label>
+          <div class="creator-two-columns">
+            <label class="field-label">Responsável *<select name="atribuidoPara" class="input" required></select></label>
+            <label class="field-label">Espaço *<select name="workspace" class="input" required></select></label>
+          </div>
+          <div class="creator-two-columns">
+            <label class="field-label">Prioridade<select name="prioridade" class="input"><option value="Baixa">Baixa</option><option value="Media">Média</option><option value="Alta">Alta</option><option value="Urgente">Urgente</option></select></label>
+            <label class="field-label">Horário<input name="horarioPrazo" class="input" type="time"></label>
+          </div>
+          <fieldset><legend>Dias da semana *</legend><div class="creator-weekdays">
+            <label><input name="diasSemana" type="checkbox" value="1"><span>Seg</span></label><label><input name="diasSemana" type="checkbox" value="2"><span>Ter</span></label><label><input name="diasSemana" type="checkbox" value="3"><span>Qua</span></label><label><input name="diasSemana" type="checkbox" value="4"><span>Qui</span></label><label><input name="diasSemana" type="checkbox" value="5"><span>Sex</span></label><label><input name="diasSemana" type="checkbox" value="6"><span>Sáb</span></label><label><input name="diasSemana" type="checkbox" value="0"><span>Dom</span></label>
+          </div></fieldset>
+          <div class="recurrence-actions"><button class="closeModal btn-secondary" type="button">Cancelar</button><button class="btn-primary" type="submit">Salvar alterações</button></div>
+        </fieldset>
+        <p id="recurrenceEditError" class="creator-error" role="alert"></p>
+      </form>
+    </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/admin-recurrences.js?v=20260913-08"></script>
-    <script src="/notification-sounds.js?v=20260913-08"></script>
-    <script src="/app.js?v=20260913-08"></script>
-  <script src="/workspace.js?v=20260913-08"></script>
-  <script src="/task-creator.js?v=20260913-08"></script>
+    <script src="/admin-recurrences.js?v=20260913-09"></script>
+    <script src="/notification-sounds.js?v=20260913-09"></script>
+    <script src="/app.js?v=20260913-09"></script>
+  <script src="/workspace.js?v=20260913-09"></script>
+  <script src="/task-creator.js?v=20260913-09"></script>
   </body>
 </html>
 

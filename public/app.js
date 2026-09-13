@@ -240,6 +240,7 @@ let currentUser = null;
   }
 
   async function loadAdmin(background = false) {
+    const recurrenceVersion = typeof recurrenceRevision === 'undefined' ? 0 : recurrenceRevision;
     if (!background) {
       $('#adminView').classList.remove('hidden');
       $('#employeeView').classList.add('hidden');
@@ -249,6 +250,7 @@ let currentUser = null;
     if (currentUser?.email === userEmail && !(background && isAdminRefreshBlocked())) await refreshNotificationSettings();
     // A poll may finish after an editor opens or after navigation/logout.
     if (currentUser?.email !== userEmail) return;
+    if (recurrenceVersion !== (typeof recurrenceRevision === 'undefined' ? 0 : recurrenceRevision)) return;
     if (background && isAdminRefreshBlocked()) return;
     adminData = result;
     notifyAdminCompletionNotes(adminData.tasks || []);
@@ -267,7 +269,7 @@ let currentUser = null;
   function isAdminRefreshBlocked() {
     return !currentUser || currentUser.perfil !== 'Admin' || $('#adminView').classList.contains('hidden') ||
       $$('.modal').some(modal => !modal.classList.contains('hidden')) ||
-      activeAdminTab === 'create' || taskCreatorSaving || taskSavePending;
+      activeAdminTab === 'create' || taskCreatorSaving || taskSavePending || (typeof recurrenceSaving !== 'undefined' && recurrenceSaving);
   }
 
   async function openAdminControl() {
@@ -1301,7 +1303,7 @@ let currentUser = null;
   }
 
   function closeModals() {
-    if (taskSavePending) return;
+    if (taskSavePending || (typeof recurrenceSaving !== 'undefined' && recurrenceSaving)) return;
     $$('.modal').forEach(modal => modal.classList.add('hidden'));
     document.body.classList.remove('modal-open');
     if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
