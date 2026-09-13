@@ -423,20 +423,20 @@ let currentUser = null;
 
     $('#adminTaskRows').innerHTML = tasks.map((task) => `
       <tr data-task-row="${escapeHtml(task.id)}">
-        <td class="px-4 py-3">
+        <td data-label="Tarefa" class="px-4 py-3">
           <div class="font-black text-slate-900">${escapeHtml(task.titulo)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div>
           ${task.obsConclusao ? `<div class="mt-2 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">Obs ao concluir: ${escapeHtml(task.obsConclusao)}</div>` : ''}
         </td>
-        <td class="px-4 py-3">
+        <td data-label="Responsável" class="px-4 py-3">
           <div class="font-bold text-slate-800">${escapeHtml(getUserLabelByEmail(task.atribuidoPara))}</div>
           <div class="text-xs text-slate-400">${escapeHtml(task.atribuidoPara || '')}</div>
         </td>
-        <td class="px-4 py-3">${priorityBadge(task.prioridade)}</td>
-        <td class="px-4 py-3">${escapeHtml(formatTaskSchedule(task))}</td>
-        <td class="px-4 py-3">${statusBadge(task.status)}</td>
-        <td class="px-4 py-3">${escapeHtml(task.tipo)}</td>
-        <td class="px-4 py-3">
+        <td data-label="Prioridade" class="px-4 py-3">${priorityBadge(task.prioridade)}</td>
+        <td data-label="Prazo" class="px-4 py-3">${escapeHtml(formatTaskSchedule(task))}</td>
+        <td data-label="Status" class="px-4 py-3">${statusBadge(task.status)}</td>
+        <td data-label="Tipo" class="px-4 py-3">${escapeHtml(task.tipo)}</td>
+        <td data-label="Ações" class="px-4 py-3">
           <div class="flex justify-end gap-2">
             <button class="adminDetailsBtn row-btn" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
             <button class="editTaskBtn row-btn" data-task-id="${escapeHtml(task.id)}">Editar</button>
@@ -465,14 +465,14 @@ let currentUser = null;
     const users = (adminData.usuarios || []).filter(user => matchesTaskSearch({ titulo: user.nome, descricao: user.email, workspace: user.workspace }, $('#userSearch').value));
     $('#adminUserRows').innerHTML = users.map((user) => `
       <tr>
-        <td class="px-4 py-3">
+        <td data-label="Pessoa" class="px-4 py-3">
           <div class="font-medium">${escapeHtml(user.nome)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(user.id || '')}</div>
         </td>
-        <td class="px-4 py-3">${escapeHtml(user.email)}</td>
-        <td class="px-4 py-3">${escapeHtml(user.perfil)}</td>
-        <td class="px-4 py-3">${escapeHtml(user.workspace || '')}</td>
-        <td class="px-4 py-3">
+        <td data-label="E-mail" class="px-4 py-3">${escapeHtml(user.email)}</td>
+        <td data-label="Perfil" class="px-4 py-3">${escapeHtml(user.perfil)}</td>
+        <td data-label="Espaço" class="px-4 py-3">${escapeHtml(user.workspace || '')}</td>
+        <td data-label="Ações" class="px-4 py-3">
           <div class="flex justify-end gap-2">
             <button class="editUserBtn row-btn" data-user-id="${escapeHtml(user.id)}">Editar</button>
             ${normalizeEmailClient(user.email) !== normalizeEmailClient(currentUser.email) ? `<button class="deleteUserBtn row-btn row-btn-danger" data-user-id="${escapeHtml(user.id)}" data-user-name="${escapeHtml(user.nome)}">Excluir</button>` : ''}
@@ -640,7 +640,7 @@ let currentUser = null;
   function renderEmployeeTemplates(templates) {
     $('#employeeTemplates').innerHTML = templates.length ? `
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <table role="table" class="mobile-table min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50">
             <tr>
               <th class="px-3 py-2 text-left text-xs font-black uppercase text-slate-500">Titulo</th>
@@ -652,13 +652,13 @@ let currentUser = null;
           <tbody class="divide-y divide-slate-100 bg-white">
             ${templates.map((template) => `
               <tr>
-                <td class="px-3 py-2">
+                <td data-label="Tarefa" class="px-3 py-2">
                   <div class="font-black text-slate-900">${escapeHtml(template.titulo)}</div>
                   <div class="text-xs text-slate-500">${escapeHtml(template.descricao || '')}</div>
                 </td>
-                <td class="px-3 py-2">${priorityBadge(template.prioridade || 'Media')}</td>
-                <td class="px-3 py-2 text-xs font-bold text-slate-500">${escapeHtml(template.workspace || '')}<br>${escapeHtml(template.diasSemanaLabel || '')}${template.horarioPrazo ? `<br>${escapeHtml(template.horarioPrazo)}` : ''}</td>
-                <td class="px-3 py-2 text-right">
+                <td data-label="Prioridade" class="px-3 py-2">${priorityBadge(template.prioridade || 'Media')}</td>
+                <td data-label="Programação" class="px-3 py-2 text-xs font-bold text-slate-500">${escapeHtml(template.workspace || '')}<br>${escapeHtml(template.diasSemanaLabel || '')}${template.horarioPrazo ? `<br>${escapeHtml(template.horarioPrazo)}` : ''}</td>
+                <td data-label="Ações" class="px-3 py-2 text-right">
                   <button class="deleteEmployeeTemplateBtn rounded-md bg-red-50 px-2 py-1 text-xs font-black text-red-700" data-template-id="${escapeHtml(template.id)}">Excluir</button>
                 </td>
               </tr>

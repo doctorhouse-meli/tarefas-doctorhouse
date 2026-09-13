@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     pwaRegistration=registration;
     if(currentUser) pwaRefresh();
     const update=document.querySelector('#pwaUpdate');
-    const offer=()=>{if(registration.waiting && navigator.serviceWorker.controller) update.hidden=false;};
+    const offer=()=>{if(registration.waiting && navigator.serviceWorker.controller) {update.hidden=false;document.querySelector('.pwa-settings').open=true;}};
     offer(); registration.addEventListener('updatefound',()=>{
       registration.installing?.addEventListener('statechange',offer);
     });

@@ -14,12 +14,13 @@
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-12">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-12">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-13">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-13">
+    <link rel="stylesheet" href="/mobile.css?v=20260913-13">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
-    <section class="pwa-tools" aria-label="Aplicativo e notificações">
+    <details class="pwa-settings"><summary>App e notificações</summary><section class="pwa-tools" aria-label="Aplicativo e notificações">
       <p id="pwaStatus" role="status">Leve suas tarefas para a tela inicial do celular.</p>
       <button id="pwaInstallButton" type="button" class="btn-secondary">Instalar app</button>
       <button id="pwaPushButton" type="button" class="btn-primary" hidden>Ativar notificações</button>
@@ -27,6 +28,7 @@
       <button id="pwaStopPush" type="button" class="text-button" hidden>Desativar avisos</button>
       <button id="pwaUpdate" type="button" class="btn-primary" hidden>Atualizar app</button>
     </section>
+    </details>
     <section id="pwaInstallHelp" class="pwa-install-help" hidden aria-label="Como instalar">
       <h2>Doctor House no celular</h2>
       <ol><li>Abra este endereço no Safari do iPhone.</li><li>Toque em Compartilhar e em <strong>Adicionar à Tela de Início</strong>. Se necessário, abra Mais para encontrar essa opção.</li><li>Mantenha <strong>Abrir como App</strong> ativado, se aparecer, e confirme em Adicionar.</li><li>Abra pelo novo ícone, entre na sua conta e toque em <strong>Ativar notificações</strong>.</li></ol>
@@ -203,7 +205,7 @@
               </div>
             </div>
             <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-slate-200 text-sm">
+              <table role="table" class="mobile-table min-w-full divide-y divide-slate-200 text-sm">
                 <thead class="bg-slate-50">
                   <tr>
                     <th class="px-4 py-3 text-left font-medium">Titulo</th>
@@ -229,7 +231,7 @@
               <button data-modal="userModal" data-mode="create" class="btn-primary">Novo Usuario</button>
             </div>
             <div class="overflow-x-auto">
-              <table class="min-w-full divide-y divide-slate-200 text-sm">
+              <table role="table" class="mobile-table min-w-full divide-y divide-slate-200 text-sm">
                 <thead class="bg-slate-50">
                   <tr>
                     <th class="px-4 py-3 text-left font-medium">Nome</th>
@@ -565,12 +567,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-12"></script>
-    <script src="/admin-recurrences.js?v=20260913-12"></script>
-    <script src="/notification-sounds.js?v=20260913-12"></script>
-    <script src="/app.js?v=20260913-12"></script>
-  <script src="/workspace.js?v=20260913-12"></script>
-  <script src="/task-creator.js?v=20260913-12"></script>
+    <script src="/pwa.js?v=20260913-13"></script>
+    <script src="/admin-recurrences.js?v=20260913-13"></script>
+    <script src="/notification-sounds.js?v=20260913-13"></script>
+    <script src="/app.js?v=20260913-13"></script>
+  <script src="/workspace.js?v=20260913-13"></script>
+  <script src="/task-creator.js?v=20260913-13"></script>
   </body>
 </html>
 
