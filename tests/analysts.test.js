@@ -45,7 +45,8 @@ test('PostgreSQL: migra Analistas, preserva tarefas e aplica destinatários indi
   assert.equal((await context.getAllowedTaskRecipients('ana@test')).length,2);
   await context.updateUser('ana',{nome:'Ana Souza',email:'ana.nova@test',senha:'',perfil:'Analista',workspace:'Principal',destinatariosPermitidos:['col']});
   assert.equal((await context.getAllowedTaskRecipients('ana.nova@test')).length,1);
-  assert.equal((await context.getSentTasks('ana.nova@test')).length,3);
+  const sent=await context.getSentTasks('ana.nova@test');assert.equal(sent.length,3);
+  assert.equal(sent.find(t=>t.id===made.id).atribuidoParaNome,'Carla');
   const visible=(await context.getEmployeeTasks('carla@test')).find(t=>t.id===made.id);assert.equal(visible.criadoPorNome,'Ana Souza');
   await assert.rejects(context.updateUser('ana',{nome:'Errado',email:'broken@test',perfil:'Analista',workspace:'Principal',destinatariosPermitidos:['other']}));
   assert.equal((await query("SELECT nome FROM usuarios WHERE id='ana'")).rows[0].nome,'Ana Souza');

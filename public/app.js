@@ -824,7 +824,7 @@ let currentUser = null;
       <button type="button" class="requestDetailsBtn employee-request-item is-${task.status === 'Concluida' ? 'done' : task.status === 'Em Andamento' ? 'progress' : 'pending'}" data-task-id="${escapeHtml(task.id)}">
         <span class="min-w-0">
           <strong>${escapeHtml(task.titulo)}</strong>
-          <small>${escapeHtml(formatTaskSchedule(task))}</small><small>Enviada por: ${escapeHtml(taskSenderName(task))}</small>
+          <small>Para: ${escapeHtml(task.atribuidoParaNome || 'Usuário não cadastrado')}</small><small>${escapeHtml(formatTaskSchedule(task))}</small><small>Enviada por: ${escapeHtml(taskSenderName(task))}</small>
         </span>
         ${statusBadge(task.status)}
       </button>
@@ -1064,7 +1064,7 @@ let currentUser = null;
     selectedTask = task;
     $('#detailsTitle').textContent = task.titulo;
     $('#detailsDescription').textContent = task.descricao || 'Sem descricao.';
-    $('#detailsSender').textContent = 'Enviada por: ' + taskSenderName(task);
+    $('#detailsSender').textContent = 'Enviada por: ' + taskSenderName(task) + (task.atribuidoParaNome ? ' · Para: ' + task.atribuidoParaNome : '');
     const isOwnAssignedTask = normalizeEmailClient(task.atribuidoPara) === normalizeEmailClient(currentUser.email);
     $('#requestFromDetailsBtn').classList.toggle('hidden', !canRequestAdmin() || !isOwnAssignedTask || task.status === 'Concluida');
     openModal('detailsModal');

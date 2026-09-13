@@ -187,6 +187,7 @@ function formatTask(row) {
     horarioPrazo: toTimeKey(row.horario_prazo),
     status: row.status,
     atribuidoPara: row.atribuido_para,
+    atribuidoParaNome: row.atribuido_para_nome || '',
     criadoPor: row.criado_por || '',
     criadoPorNome: row.criado_por_nome || (row.tipo === 'Diaria' && !row.criado_por ? 'Sistema' : 'Autoria não registrada'),
     solicitadoPor: row.solicitado_por || '',
@@ -575,7 +576,9 @@ export async function getSentTasks(userEmail) {
   const user = await getUserByEmail(userEmail);
   if (!user) throw new Error('Usuario nao encontrado.');
   const result = await query(
-    `SELECT t.*,COALESCE(u.nome,t.criado_por_nome) AS criado_por_nome FROM tarefas t LEFT JOIN usuarios u ON u.email=t.criado_por
+    `SELECT t.*,COALESCE(u.nome,t.criado_por_nome) AS criado_por_nome,recipient.nome AS atribuido_para_nome
+     FROM tarefas t LEFT JOIN usuarios u ON u.email=t.criado_por
+     LEFT JOIN usuarios recipient ON recipient.email=t.atribuido_para
      WHERE t.solicitado_por=$1 OR (t.criado_por=$1 AND t.atribuido_para<>$1)
      ORDER BY t.data_criacao DESC,t.data_prazo,t.horario_prazo NULLS LAST`,
     [normalizeEmail(userEmail)],
