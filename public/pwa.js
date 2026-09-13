@@ -7,6 +7,8 @@ let pwaTaskToOpen = new URL(location.href).searchParams.get('task');
 const pwaStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 const pwaIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
+const pwaMobile = () => pwaIos() || navigator.userAgentData?.mobile === true || /Android|Windows Phone|IEMobile/i.test(navigator.userAgent || '');
+
 async function pwaRequest(path, method='GET', body) {
   const response=await fetch('/api/pwa/'+path,{method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+authToken},body:body ? JSON.stringify(body):undefined});
   const result=await response.json();
@@ -97,18 +99,19 @@ document.addEventListener('DOMContentLoaded',()=>{
   const status=document.querySelector('#pwaStatus');
   const help=document.querySelector('#pwaInstallHelp');
   const install=document.querySelector('#pwaInstallButton');
-  install.hidden=pwaStandalone();
-  status.textContent=pwaStandalone() ? 'Doctor House instalado neste aparelho.' : 'Leve suas tarefas para a tela inicial do celular.';
+  install.hidden=!pwaMobile() || pwaStandalone();
+  status.textContent=pwaStandalone() ? 'Doctor House instalado neste aparelho.' : pwaMobile() ? 'Leve suas tarefas para a tela inicial do celular.' : 'Gerencie as notificações deste computador.';
   const connection=()=>{document.querySelector('#connectionNotice').hidden=navigator.onLine;};
   connection(); window.addEventListener('offline',connection); window.addEventListener('online',()=>{connection();if(currentUser) pwaRefresh();});
-  window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();pwaInstallPrompt=event;install.hidden=false;});
+  window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();if(!pwaMobile() || pwaStandalone())return;pwaInstallPrompt=event;install.hidden=false;});
   window.addEventListener('appinstalled',()=>{install.hidden=true;status.textContent='App instalado. Abra pelo ícone na tela inicial.';});
   install.addEventListener('click',async()=>{
+    if(!pwaMobile() || pwaStandalone())return;
     if(pwaInstallPrompt) { await pwaInstallPrompt.prompt(); await pwaInstallPrompt.userChoice; pwaInstallPrompt=null; }
     else { help.hidden=!help.hidden; }
   });
   document.querySelector('#pwaCloseHelp').addEventListener('click',()=>{help.hidden=true;});
-  if(!('serviceWorker' in navigator)) {status.textContent='Este navegador não permite instalar o app. Abra no Safari ou Chrome atualizado.';return;}
+  if(!('serviceWorker' in navigator)) {status.textContent=pwaMobile() ? 'Este navegador não permite instalar o app. Abra no Safari ou Chrome atualizado.' : 'Este navegador não oferece suporte aos avisos em segundo plano.';return;}
   navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).then(registration=>{
     pwaRegistration=registration;
     if(currentUser) pwaRefresh();
@@ -122,7 +125,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});
       registration.waiting?.postMessage({type:'ACTIVATE_UPDATE'});
     });
-  }).catch(()=>{status.textContent='Não foi possível preparar a instalação. Atualize a página e tente novamente.';});
+  }).catch(()=>{status.textContent='Não foi possível preparar os recursos do app. Atualize a página e tente novamente.';});
   navigator.serviceWorker.addEventListener('message',async event=>{
     if(event.data?.type!=='OPEN_TASK') return;
     pwaTaskToOpen=new URL(event.data.url,location.origin).searchParams.get('task');

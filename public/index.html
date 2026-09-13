@@ -14,15 +14,15 @@
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-24">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-24">
-    <link rel="stylesheet" href="/mobile.css?v=20260913-24">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-25">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-25">
+    <link rel="stylesheet" href="/mobile.css?v=20260913-25">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
     <details class="pwa-settings"><summary>App e notificações</summary><section class="pwa-tools" aria-label="Aplicativo e notificações">
-      <p id="pwaStatus" role="status">Leve suas tarefas para a tela inicial do celular.</p>
-      <button id="pwaInstallButton" type="button" class="btn-secondary">Instalar app</button>
+      <p id="pwaStatus" role="status"></p>
+      <button id="pwaInstallButton" type="button" hidden class="btn-secondary">Instalar app</button>
       <button id="pwaPushButton" type="button" class="btn-primary" hidden>Ativar notificações</button>
       <button id="pwaTestPush" type="button" class="btn-secondary" hidden>Testar notificação</button>
       <button id="pwaStopPush" type="button" class="text-button" hidden>Desativar avisos</button>
@@ -511,19 +511,6 @@
         <div class="mt-5 flex justify-end gap-2"><button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button><button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-white">Encaminhar</button></div>
       </form>
     </div>
-    <div id="completeTaskModal" class="modal hidden">
-      <form id="completeTaskForm" class="modal-panel max-w-md">
-        <h2 class="text-lg font-semibold">Concluir tarefa</h2>
-        <p class="mt-1 text-sm text-slate-500">Se quiser, deixe uma observacao para o admin ver no painel.</p>
-        <input name="taskId" type="hidden">
-        <textarea name="obsConclusao" placeholder="Observacao opcional" class="input mt-4"></textarea>
-        <div class="mt-5 flex justify-end gap-2">
-          <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
-          <button class="rounded-md bg-emerald-600 px-3 py-2 font-bold text-white">Concluir</button>
-        </div>
-      </form>
-    </div>
-
     <div id="notificationPromptModal" class="modal hidden">
       <div class="modal-panel max-w-md">
         <h2 class="text-xl font-black">Receber avisos de novas tarefas?</h2>
@@ -559,12 +546,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-24"></script>
-    <script src="/admin-recurrences.js?v=20260913-24"></script>
-    <script src="/notification-sounds.js?v=20260913-24"></script>
-    <script src="/app.js?v=20260913-24"></script>
-  <script src="/workspace.js?v=20260913-24"></script>
-  <script src="/task-creator.js?v=20260913-24"></script>
+    <script src="/pwa.js?v=20260913-25"></script>
+    <script src="/admin-recurrences.js?v=20260913-25"></script>
+    <script src="/notification-sounds.js?v=20260913-25"></script>
+    <script src="/app.js?v=20260913-25"></script>
+  <script src="/workspace.js?v=20260913-25"></script>
+  <script src="/task-creator.js?v=20260913-25"></script>
   </body>
 </html>
 

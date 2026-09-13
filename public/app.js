@@ -58,7 +58,6 @@ let currentUser = null;
     $('#employeeRecipient').addEventListener('change', () => {
       $('#employeeTaskHint').textContent = $('#employeeRecipient').value ? 'A pessoa selecionada receberá esta tarefa.' : 'Esta tarefa será criada para você.';
     });
-    $('#completeTaskForm').addEventListener('submit', handleCompleteTaskWithNote);
     $('#employeeTaskFilters').addEventListener('click', handleEmployeeFilterClick);
     $('#employeeSummary').addEventListener('click', handleEmployeeFilterClick);
     $('#backToMyTasksBtn').addEventListener('click', () => openMyTasks(false));
@@ -926,10 +925,6 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     $$('.editOwnTaskBtn').forEach(button => button.addEventListener('click', () => openOwnTaskEditor(button.dataset.taskId)));
     $$('.statusBtn').forEach((button) => {
       button.addEventListener('click', () => {
-        if (button.dataset.status === 'Concluida') {
-          openCompleteTaskModal(button.dataset.taskId);
-          return;
-        }
         changeStatus(button.dataset.taskId, button.dataset.status);
       });
     });
@@ -1031,21 +1026,6 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     if (status === 'Em Andamento') return 0;
     if (status === 'Pendente') return 1;
     return 2;
-  }
-
-  function openCompleteTaskModal(taskId) {
-    const form = $('#completeTaskForm');
-    form.reset();
-    form.elements.taskId.value = taskId;
-    openModal('completeTaskModal');
-  }
-
-  async function handleCompleteTaskWithNote(event) {
-    event.preventDefault();
-    const form = event.target;
-    await changeStatus(form.elements.taskId.value, 'Concluida', form.elements.obsConclusao.value);
-    form.reset();
-    closeModals();
   }
 
   async function changeStatus(taskId, status, completionNote = '') {

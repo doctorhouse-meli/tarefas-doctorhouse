@@ -83,3 +83,14 @@ test('foreground fallback uses the worker and avoids a second alert when push is
   await context.pwaNotify('Nova tarefa recebida',{tag:'task-2'});
   assert.equal(shown.length,1);
 });
+
+test('convite de instalação aparece só em dispositivos móveis e não reaparece no PC',()=>{
+ for(const [userAgent,standalone,visible] of [['Mozilla Windows NT 10.0',false,false],['Mozilla iPhone',false,true],['Mozilla Android',false,true],['Mozilla iPhone',true,false]]) {
+  const nodes=new Map(),events={};let ready;
+  const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,addEventListener(){}});return nodes.get(id);};
+  const c=vm.createContext({URL,location:{href:'https://tasks.example/'},navigator:{userAgent,platform:'',maxTouchPoints:0,onLine:true},matchMedia:()=>({matches:standalone}),window:{addEventListener:(type,fn)=>events[type]=fn},document:{addEventListener:(_,fn)=>ready=fn,querySelector:node}});
+  vm.runInContext(readFileSync(new URL('../public/pwa.js',import.meta.url),'utf8'),c);
+  ready();assert.equal(node('#pwaInstallButton').hidden,!visible);
+  events.beforeinstallprompt({preventDefault(){}});assert.equal(node('#pwaInstallButton').hidden,!visible);
+ }
+});
