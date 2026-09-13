@@ -26,7 +26,7 @@ test('listas abertas, pendentes e concluídas respeitam o status', () => {
 test('busca ignora acentos e combina com filtro e ordenação', () => {
   const run = workspace();
   assert.equal(run(`taskSearch='reposicao'; applyEmployeeTaskFilter(sample)[0].id`), 'a');
-  assert.equal(run(`taskSearch=''; taskSort='priority'; applyEmployeeTaskFilter(sample)[0].id`), 'b');
+  assert.equal(run(`taskSearch=''; applyEmployeeTaskFilter(sample)[0].id`), 'b');
   assert.equal(run(`taskSearch='inexistente'; applyEmployeeTaskFilter(sample).length`), 0);
 });
 test('descrições escapam HTML e apenas HTTP(S) vira link', () => {
@@ -41,4 +41,24 @@ test('tarefas sem prazo têm grupo próprio e datas usam formato brasileiro', ()
   const run = workspace();
   assert.ok(run(`renderTaskGroups([sample[3]])`).includes('Sem prazo'));
   assert.equal(run(`formatTaskSchedule({dataPrazo:'2026-09-13',horarioPrazo:'09:30'})`), '13/09/2026 às 09:30');
+});
+
+test('em andamento precede atrasadas sem duplicar e mantém prazos antigos primeiro', () => {
+  const run = workspace();
+  assert.equal(run(`applyEmployeeTaskFilter(sample).map(t=>t.id).join(',')`), 'b,a,d');
+  const html = run(`renderTaskGroups(applyEmployeeTaskFilter(sample))`);
+  assert.ok(html.indexOf('group-heading doing') < html.indexOf('group-heading overdue'));
+  assert.equal((html.match(/<article /g) || []).length, 3);
+  assert.equal(run(`sortEmployeeTasks([
+    {...sample[1], id:'new', dataPrazo:'2026-09-12'},
+    {...sample[0], id:'old-pending', dataPrazo:'2025-01-01'},
+    {...sample[1], id:'old', dataPrazo:'2026-01-01'}
+  ]).map(t=>t.id).join(',')`), 'old,new,old-pending');
+});
+test('mesmo prazo desempata pela criação e concluídas também seguem ordem antiga', () => {
+  const run = workspace();
+  assert.equal(run(`sortEmployeeTasks([
+    {...sample[2], id:'new', dataCriacaoSort:200},
+    {...sample[2], id:'old', dataCriacaoSort:100}
+  ]).map(t=>t.id).join(',')`), 'old,new');
 });

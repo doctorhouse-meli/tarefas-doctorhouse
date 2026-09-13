@@ -374,7 +374,7 @@ let currentUser = null;
     const employee = $('#filterEmployee').value;
     const workspace = $('#filterWorkspace').value;
     const status = $('#filterStatus').value;
-    const tasks = adminData.tasks.filter((task) => {
+    const tasks = sortEmployeeTasks(adminData.tasks).filter((task) => {
       const matchesEmployee = !employee || task.atribuidoPara === employee;
       const matchesWorkspace = !workspace || task.workspace === workspace;
       const matchesStatus = !status || task.status === status;
@@ -632,15 +632,9 @@ let currentUser = null;
   }
 
   function sortEmployeeTasks(tasks) {
-    return [...tasks].sort((a, b) => {
-      if (a.status === 'Concluida' && b.status === 'Concluida') {
-        return getCompletedSortValue(b) - getCompletedSortValue(a);
-      }
-      const dueA = getScheduleSortValue(a);
-      const dueB = getScheduleSortValue(b);
-      if (dueA !== dueB) return dueA - dueB;
-      return String(a.titulo || '').localeCompare(String(b.titulo || ''));
-    });
+    // Stable second pass keeps the oldest deadlines first inside each status group.
+    return sortOldestFirst(tasks).sort((a, b) =>
+      Number(b.status === 'Em Andamento') - Number(a.status === 'Em Andamento'));
   }
 
   function sortOldestFirst(tasks) {
@@ -783,8 +777,6 @@ let currentUser = null;
     else if (['today','overdue','next'].includes(employeeTaskFilter)) result = getTasksByDueKey(tasks, employeeTaskFilter);
     else result = getOpenTasks(tasks);
     result = result.filter(task => matchesTaskSearch(task, taskSearch));
-    if (taskSort === 'title') return [...result].sort((a,b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
-    if (taskSort === 'priority') { const weight = { Urgente:0, Alta:1, Media:2, Baixa:3 }; return [...result].sort((a,b) => (weight[a.prioridade] ?? 2) - (weight[b.prioridade] ?? 2) || getScheduleSortValue(a)-getScheduleSortValue(b)); }
     return sortEmployeeTasks(result);
   }
 
@@ -876,7 +868,7 @@ let currentUser = null;
   function renderEmployeeTaskCard(task) {
     const done = task.status === 'Concluida';
     const id = escapeHtml(task.id);
-    return `<article class="employee-task-row ${done ? 'is-done' : ''}">
+    return `<article class="employee-task-row ${done ? 'is-done' : task.status === 'Em Andamento' ? 'is-progress' : ''}">
       <button class="statusBtn task-check ${done ? 'checked' : ''}" data-task-id="${id}" data-status="${done ? 'Pendente' : 'Concluida'}" aria-label="${done ? 'Reabrir' : 'Concluir'}: ${escapeHtml(task.titulo)}" title="${done ? 'Reabrir tarefa' : 'Concluir tarefa'}">${done ? '✓' : ''}</button>
       <div class="task-row-content"><button class="taskDetailsBtn employee-task-title" data-task-id="${id}">${escapeHtml(task.titulo)}</button>
       ${task.descricao ? `<div class="employee-task-description">${taskDescriptionHtml(task.descricao)}</div>` : ''}

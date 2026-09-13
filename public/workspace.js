@@ -1,16 +1,11 @@
 /* Workspace presentation. All data operations continue through app.js. */
 let taskSearch = '';
-let taskSort = 'date';
 let activeAdminTab = 'overview';
 let modalReturnFocus = null;
 
 function initWorkspaceUI() {
   $('#taskSearch').addEventListener('input', event => {
     taskSearch = event.target.value;
-    renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
-  });
-  $('#taskSort').addEventListener('change', event => {
-    taskSort = event.target.value;
     renderEmployeeTasks(applyEmployeeTaskFilter(currentEmployeeTasks));
   });
   $('#adminSearch').addEventListener('input', renderAdminTasks);
@@ -74,9 +69,14 @@ function taskDescriptionHtml(description) {
 
 function renderTaskGroups(tasks) {
   if (!tasks.length) return '<div class="empty-state"><span aria-hidden="true">✓</span><h3>Nenhuma tarefa por aqui</h3><p>Experimente outra lista ou busca, ou adicione uma nova tarefa.</p></div>';
-  if (employeeTaskFilter === 'done' || taskSort !== 'date') return tasks.map(renderEmployeeTaskCard).join('');
-  return [['overdue', 'Atrasadas'], ['today', 'Hoje'], ['next', 'Próximos dias'], ['undated', 'Sem prazo']].map(([key, label]) => {
-    const group = tasks.filter(task => !task.dataPrazo ? key === 'undated' : getTaskDueKey(task) === key);
+  tasks = sortEmployeeTasks(tasks);
+  if (employeeTaskFilter === 'done') return tasks.map(renderEmployeeTaskCard).join('');
+  return [['doing', 'Em andamento'], ['overdue', 'Atrasadas'], ['today', 'Hoje'], ['next', 'Próximos dias'], ['undated', 'Sem prazo']].map(([key, label]) => {
+    const group = tasks.filter(task => {
+      if (task.status === 'Em Andamento') return key === 'doing';
+      if (key === 'doing') return false;
+      return !task.dataPrazo ? key === 'undated' : getTaskDueKey(task) === key;
+    });
     return group.length ? `<section class="task-group"><h3 class="group-heading ${key}">${label}<span>${group.length}</span></h3>${group.map(renderEmployeeTaskCard).join('')}</section>` : '';
   }).join('');
 }
