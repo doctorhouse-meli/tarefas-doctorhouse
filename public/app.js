@@ -12,6 +12,7 @@ let currentUser = null;
   let currentEmployeeRequests = [];
   let showCompletedRequests = false;
   let knownEmployeeTaskIds = new Set();
+  let employeeTasksBootstrapped = false;
   let knownRequestStatuses = new Map();
   let requestStatusBootstrapped = false;
   let knownAdminCompletionObs = new Set();
@@ -90,8 +91,10 @@ let currentUser = null;
       if (currentUser) clearTitleAlert();
     });
     document.addEventListener('click', () => {
+      unlockNotificationSound();
       if (currentUser) clearTitleAlert();
     });
+    document.addEventListener('keydown', unlockNotificationSound);
 
     initializeAuth();
   });
@@ -1369,6 +1372,7 @@ let currentUser = null;
       employeePollTimer = null;
     }
     knownEmployeeTaskIds = new Set();
+    employeeTasksBootstrapped = false;
     knownRequestStatuses = new Map();
     requestStatusBootstrapped = false;
   }
@@ -1376,8 +1380,9 @@ let currentUser = null;
   function notifyNewEmployeeTasks(tasks, isInitialLoad) {
     const incomingIds = new Set(tasks.map((task) => task.id));
 
-    if (isInitialLoad || knownEmployeeTaskIds.size === 0) {
+    if (isInitialLoad || !employeeTasksBootstrapped) {
       knownEmployeeTaskIds = incomingIds;
+      employeeTasksBootstrapped = true;
       return;
     }
 

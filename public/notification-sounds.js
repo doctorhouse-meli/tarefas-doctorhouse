@@ -15,6 +15,7 @@ let soundSettingsEpoch = 0;
 let soundPlaybackToken = 0;
 let soundCatalogPromise;
 const soundBuffers = new Map();
+const soundBufferLoads = new Map();
 const notificationNodes = new Set();
 
 function trackNotificationNode(node) {
@@ -58,6 +59,10 @@ async function refreshNotificationSettings() {
     if (epoch !== soundSettingsEpoch || soundSettingsSaving) return;
     if (!settings || !NOTIFICATION_SOUNDS.some(([id]) => id === settings.sound)) return;
     notificationSettings = settings;
+    // Prepare the selected clip before an automatic notification needs it.
+    if (settings.sound !== 'original' && settings.sound !== 'none' && typeof audioContext !== 'undefined' && audioContext) {
+      getNotificationBuffer(settings.sound).catch(() => {});
+    }
     fillSoundForm();
   } catch {
     // A settings outage must not prevent users from loading their tasks.
@@ -65,6 +70,22 @@ async function refreshNotificationSettings() {
 }
 
 function initNotificationSounds() {
+  document.querySelector('#testEmployeeSound').addEventListener('click', async event => {
+    unlockNotificationSound();
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      await refreshNotificationSettings();
+      if (notificationSettings.sound === 'none' || notificationSettings.volume === 0) {
+        showToast('O administrador configurou os avisos sem som.');
+        return;
+      }
+      const played = await playNotificationSound(notificationSettings, true);
+      showToast(played
+        ? `Som da equipe: ${NOTIFICATION_SOUNDS.find(([id]) => id === notificationSettings.sound)?.[1]}. Confira o volume do computador.`
+        : 'Não foi possível tocar. Clique novamente em Testar som e confira se a aba está sem áudio.');
+    } finally { button.disabled = false; }
+  });
   document.querySelector('#soundOptions').innerHTML = NOTIFICATION_SOUNDS.map(([id, name, detail]) => `
     <div class="sound-option"><label><input type="radio" name="notificationSound" value="${id}" ${id === 'original' ? 'checked' : ''}><span><strong>${name}</strong><small>${detail}</small></span></label>
     ${id !== 'none' ? `<button type="button" class="btn-secondary" data-preview-sound="${id}" aria-label="Ouvir ${name}">▶ Ouvir</button>` : ''}</div>`).join('');
@@ -107,15 +128,23 @@ function initNotificationSounds() {
 
 async function getNotificationBuffer(id) {
   if (soundBuffers.has(id)) return soundBuffers.get(id);
+  if (soundBufferLoads.has(id)) return soundBufferLoads.get(id);
+  const load = loadNotificationBuffer(id);
+  soundBufferLoads.set(id, load);
+  try { return await load; } finally { soundBufferLoads.delete(id); }
+}
+
+async function loadNotificationBuffer(id) {
   if (!soundCatalogPromise) {
-    soundCatalogPromise = fetch('/sounds/catalog.json?v=20260913-07').then(response => {
+    soundCatalogPromise = fetch('/sounds/catalog.json?v=20260913-07', { signal: AbortSignal.timeout(5000) }).then(response => {
       if (!response.ok) throw Error('Falha ao carregar os sons.');
       return response.json();
     }).catch(error => { soundCatalogPromise = null; throw error; });
   }
   const catalog = await soundCatalogPromise;
   if (!catalog[id]) throw Error('Som indisponível.');
-  const response = await fetch(catalog[id]);
+  const response = await fetch(catalog[id], { signal: AbortSignal.timeout(5000) });
+  if (!response.ok) throw Error('Falha ao carregar o áudio.');
   const buffer = await audioContext.decodeAudioData(await response.arrayBuffer());
   soundBuffers.set(id, buffer);
   return buffer;
@@ -128,7 +157,8 @@ async function playNotificationSound(settings = notificationSettings, preview = 
   try {
     unlockNotificationSound();
     if (!audioContext) throw Error('Este navegador não suporta áudio.');
-    if (audioContext.state === 'suspended') await audioContext.resume();
+    // Like the original tone, queue playback even if resume needs a user gesture.
+    // Awaiting resume here can leave an automatic alert pending indefinitely.
     if (token !== soundPlaybackToken) return false;
     if (settings.sound === 'original') {
       for (let i = 0; i < settings.repeat; i++) playLegacyNotificationSound(settings.volume, i * 1.05);
@@ -145,6 +175,10 @@ async function playNotificationSound(settings = notificationSettings, preview = 
         source.addEventListener('ended', () => gain.disconnect());
         source.start(audioContext.currentTime + i * (buffer.duration + 0.3));
       }
+    }
+    if (preview && audioContext.state !== 'running') {
+      document.querySelector('#soundSettingsStatus').textContent = 'Clique em Ouvir novamente para liberar o áudio neste navegador.';
+      return false;
     }
     return true;
   } catch (error) {
