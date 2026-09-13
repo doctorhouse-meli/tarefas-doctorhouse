@@ -141,7 +141,7 @@ function signToken(user) {
     email: user.email,
     perfil: user.perfil,
     workspace: user.workspace,
-    exp: Date.now() + 1000 * 60 * 60 * 12,
+    persistent: true,
   })).toString('base64url');
   const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
   return `${payload}.${signature}`;
@@ -155,7 +155,7 @@ function verifyToken(token) {
     throw new Error('Sessao invalida.');
   }
   const data = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-  if (!data.exp || Date.now() > data.exp) throw new Error('Sessao expirada.');
+  if (data.persistent !== true && (!Number.isFinite(data.exp) || Date.now() > data.exp)) throw new Error('Sessao expirada.');
   return data;
 }
 
