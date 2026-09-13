@@ -1056,8 +1056,12 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
 
   async function openTaskDetails(task) {
     selectedTask = task;
+    $('#detailsHistory').open=false;
+    $('#detailsChecklistCount').textContent='';
+    for(const id of ['checklistList','commentsList','historyList']) $('#'+id).innerHTML='<p class="details-empty">Carregando…</p>';
+    $('#detailsMeta').innerHTML=`<div><span>Status</span>${statusBadge(task.status)}</div><div><span>Prioridade</span>${priorityBadge(task.prioridade)}</div><div><span>Prazo</span><strong>${escapeHtml(formatTaskSchedule(task))}</strong></div>`;
     $('#detailsTitle').textContent = task.titulo;
-    $('#detailsDescription').textContent = task.descricao || 'Sem descricao.';
+    $('#detailsDescription').textContent = task.descricao || 'Nenhuma descrição adicionada.';
     $('#detailsSender').textContent = 'Enviada por: ' + taskSenderName(task) + (task.atribuidoParaNome ? ' · Para: ' + task.atribuidoParaNome : '');
     const isOwnAssignedTask = normalizeEmailClient(task.atribuidoPara) === normalizeEmailClient(currentUser.email);
     openModal('detailsModal');
@@ -1074,12 +1078,13 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
 
   async function loadComments(taskId) {
     const comments = await callServer('getTaskComments', taskId);
+    if(selectedTask?.id!==taskId)return;
     $('#commentsList').innerHTML = comments.map((comment) => `
       <div class="rounded-md bg-white p-2 ring-1 ring-slate-200">
         <p class="text-xs text-slate-400">${escapeHtml(comment.autorEmail)} - ${escapeHtml(comment.dataHora)}</p>
         <p class="mt-1 text-sm">${escapeHtml(comment.mensagem)}</p>
       </div>
-    `).join('') || '<p class="text-sm text-slate-400">Sem comentarios.</p>';
+    `).join('') || '<p class="text-sm text-slate-400">Nenhum comentário ainda.</p>';
   }
 
   async function handleAddComment(event) {
@@ -1092,13 +1097,15 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
 
   async function loadChecklist(taskId) {
     const checklist = await callServer('getTaskChecklist', taskId);
+    if(selectedTask?.id!==taskId)return;
+    $('#detailsChecklistCount').textContent=checklist.length ? `${checklist.filter(item=>item.concluido).length} de ${checklist.length} concluídos` : '';
     $('#checklistList').innerHTML = checklist.map((item) => `
       <div class="flex items-center gap-2 rounded-md bg-white p-2 ring-1 ring-slate-200">
-        <input class="checklistToggle h-4 w-4" type="checkbox" data-item-id="${escapeHtml(item.id)}" ${item.concluido ? 'checked' : ''}>
+        <input class="checklistToggle h-4 w-4" aria-label="${escapeHtml(item.titulo)}" type="checkbox" data-item-id="${escapeHtml(item.id)}" ${item.concluido ? 'checked' : ''}>
         <span class="flex-1 text-sm ${item.concluido ? 'text-slate-400 line-through' : 'text-slate-700'}">${escapeHtml(item.titulo)}</span>
         <button class="deleteChecklistBtn rounded-md bg-red-50 px-2 py-1 text-xs font-black text-red-700" data-item-id="${escapeHtml(item.id)}">Excluir</button>
       </div>
-    `).join('') || '<p class="text-sm text-slate-400">Sem checklist.</p>';
+    `).join('') || '<p class="text-sm text-slate-400">Adicione itens para acompanhar a execução.</p>';
 
     $$('.checklistToggle').forEach((input) => {
       input.addEventListener('change', async () => {
@@ -1116,13 +1123,14 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
 
   async function loadHistory(taskId) {
     const history = await callServer('getTaskHistory', taskId);
+    if(selectedTask?.id!==taskId)return;
     $('#historyList').innerHTML = history.map((item) => `
       <div class="rounded-md bg-white p-2 ring-1 ring-slate-200">
         <p class="text-xs font-bold text-slate-500">${escapeHtml(item.dataHora)} | ${escapeHtml(item.autorEmail)}</p>
         <p class="mt-1 text-sm font-black">${escapeHtml(item.acao)}</p>
         <p class="text-xs text-slate-500">${escapeHtml(item.detalhes || '')}</p>
       </div>
-    `).join('') || '<p class="text-sm text-slate-400">Sem historico.</p>';
+    `).join('') || '<p class="text-sm text-slate-400">Nenhuma alteração registrada.</p>';
   }
 
   async function handleAddChecklistItem(event) {
