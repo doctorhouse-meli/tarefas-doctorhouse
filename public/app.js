@@ -686,7 +686,7 @@ let currentUser = null;
   function renderEmployeeSummary(tasks) {
     $('#employeeGreeting').textContent = 'Olá, ' + currentUser.nome.split(' ')[0];
     const filters = [['all','Todas as tarefas','☰',getOpenTasks(tasks).length],['today','Hoje','◷',getTasksByDueKey(tasks,'today').length],['overdue','Atrasadas','!',getTasksByDueKey(tasks,'overdue').length],['pending','Pendentes','○',getPendingTasks(tasks).length],['doing','Em andamento','◐',getDoingTasks(tasks).length],['next','Próximos dias','▦',getTasksByDueKey(tasks,'next').length],['done','Concluídas','✓',getDoneTasks(tasks).length]];
-    $('#employeeSummary').innerHTML = filters.map(([key,label,icon,count]) => `<button type="button" class="employee-summary-card ${employeeTaskFilter === key ? 'is-active' : ''}" data-filter="${key}" aria-pressed="${employeeTaskFilter === key}"><span class="nav-icon" aria-hidden="true">${icon}</span><span class="nav-label">${label}</span><strong>${count}</strong></button>`).join('');
+    $('#employeeSummary').innerHTML = filters.map(([key,label,icon,count]) => `<button type="button" class="employee-summary-card ${employeeTaskFilter === key ? 'is-active' : ''}" data-filter="${key}" aria-pressed="${employeeTaskFilter === key}"><span class="nav-icon" aria-hidden="true">${workspaceIcon(key)}</span><span class="nav-label">${label}</span><strong>${count}</strong></button>`).join('');
   }
 
   function renderEmployeeRequests(requests) {

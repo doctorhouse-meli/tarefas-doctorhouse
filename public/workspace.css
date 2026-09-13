@@ -1,4 +1,4 @@
-:root { --ink:#243333; --muted:#687978; --accent:#087b70; --pale:#e4f2ee; --line:#e4eae7; }
+:root { --ink:#20283e; --muted:#69748b; --accent:#4263eb; --pale:#edf0ff; --line:#e8ecf3; }
 .order-note { font-size:11px; color:#526577; line-height:1.5; }
 #employeeSummary [data-filter] { --list-color:#087b70; --list-bg:#e0f3ed; --list-border:#98d6c4; background:var(--list-bg); border:1px solid var(--list-border); border-left:4px solid var(--list-color); }
 #employeeSummary [data-filter=today] { --list-color:#a34d00; --list-bg:#fff0ce; --list-border:#efc669; }
@@ -183,4 +183,132 @@ table td { font-size:12px; }
  .modal { padding:10px; }
  .modal-panel { padding:22px 18px; max-height:calc(100dvh - 20px); }
  #loginView>div { padding:28px; }
+}
+
+/* Larger contemporary workspace, shared by personal and team views. */
+body.app-body { background:#f5f7fc; color:var(--ink); font-family:'Inter','Segoe UI Variable Text','Segoe UI',system-ui,sans-serif; font-size:16px; -webkit-font-smoothing:antialiased; }
+.app-header>div { max-width:1560px; padding:20px 32px; }
+.brand-logo { width:165px; }
+.brand-header h1 { font-size:22px; letter-spacing:-.6px; }
+#userInfo { font-size:14px; color:#6b7690; margin-top:4px; }
+#employeeView { max-width:1560px; grid-template-columns:270px minmax(0,1fr); gap:42px; padding:36px 32px 72px; }
+.new-task-btn { justify-content:center; min-height:58px; font-size:17px; border-radius:16px; background:#4263eb; box-shadow:0 7px 18px #4263eb22; }
+.new-task-btn:hover,.btn-primary:hover { background:#3451cf; }
+.new-task-btn>span { font-size:28px; }
+.nav-caption { font-size:12px; letter-spacing:1.3px; margin:30px 16px 16px; color:#778299; }
+#employeeSummary { gap:9px; }
+#employeeSummary [data-filter] { --list-color:#4263eb; --list-bg:#eef1ff; min-height:64px; padding:10px 14px; gap:13px; border:0; border-radius:16px; background:transparent; box-shadow:none; }
+#employeeSummary [data-filter=today] { --list-color:#b96a08; --list-bg:#fff2d7; }
+#employeeSummary [data-filter=overdue] { --list-color:#df345b; --list-bg:#ffeaf0; }
+#employeeSummary [data-filter=pending] { --list-color:#8850d6; --list-bg:#f2eaff; }
+#employeeSummary [data-filter=doing] { --list-color:#2874e8; --list-bg:#e9f1ff; }
+#employeeSummary [data-filter=next] { --list-color:#048b9e; --list-bg:#e3f8fb; }
+#employeeSummary [data-filter=done] { --list-color:#169565; --list-bg:#e2f7ed; }
+#employeeSummary [data-filter] .nav-icon { display:grid; place-items:center; flex:0 0 38px; width:38px; height:38px; border-radius:12px; color:var(--list-color); background:var(--list-bg); }
+.nav-icon svg { width:22px; height:22px; }
+#employeeSummary [data-filter] .nav-label { font-size:16px; color:#4b5870; font-weight:500; letter-spacing:-.2px; }
+#employeeSummary [data-filter] strong { font-size:14px; font-weight:600; min-width:28px; padding:6px 8px; background:var(--list-bg); color:var(--list-color); border-radius:9px; }
+#employeeSummary [data-filter].is-active { background:var(--list-bg); border:0; box-shadow:none; }
+#employeeSummary [data-filter].is-active .nav-label { color:var(--list-color); font-weight:650; }
+#employeeSummary [data-filter].is-active .nav-icon { background:var(--list-color); color:white; }
+#employeeSummary [data-filter].is-active strong { background:white; color:var(--list-color); }
+#employeeSummary [data-filter]:hover { background:var(--list-bg); box-shadow:none; }
+.sidebar-tools { border-color:#e1e6f0; margin-top:24px; padding-top:16px; }
+.sidebar-link { min-height:48px; padding:12px 16px; color:#6a7790; }
+.sidebar-link span { font-size:15px; }
+.sidebar-note { font-size:13px; color:#8b94a6; }
+.workspace-heading { margin:0 0 28px; }
+.eyebrow { font-size:11px; letter-spacing:1.8px; color:#6375b0; }
+#employeeGreeting { font-size:38px; line-height:1.25; font-weight:650; letter-spacing:-1.4px; color:#20283e; }
+.workspace-heading p:last-child { font-size:16px; color:#78839a; margin-top:10px; }
+.workspace-mark { display:none; }
+.search-toolbar { gap:14px; flex-wrap:wrap; margin-bottom:24px; }
+.search-field { padding:15px 18px; border-color:#e7ebf4; border-radius:14px; min-height:56px; }
+.search-field input { font-size:16px; }
+.order-note { font-size:12px; max-width:185px; color:#7c879c; }
+.text-button { font-size:14px; }
+.employee-list-panel { border-color:#e9edf5; border-radius:22px; box-shadow:0 8px 30px #1c326004; padding-bottom:24px; }
+.employee-list-header { padding:28px 30px 12px; }
+.employee-list-header h2 { font-size:24px; font-weight:650; letter-spacing:-.7px; }
+.employee-list-header p { font-size:14px; color:#8a94a7; margin-top:5px; }
+.task-group .group-heading { display:flex; gap:10px; margin:22px 30px 10px; padding:0; border:0; background:transparent; font-size:15px; font-weight:650; letter-spacing:-.2px; }
+.task-group .group-heading::before { content:''; width:8px; height:8px; border-radius:50%; background:currentColor; }
+.task-group .group-heading.doing { color:#2874e8; background:transparent; }
+.task-group .group-heading.overdue { color:#df345b; background:transparent; }
+.task-group .group-heading.today { color:#b96a08; background:transparent; }
+.task-group .group-heading.next { color:#048b9e; background:transparent; }
+.task-group .group-heading.undated { color:#7a8498; background:transparent; }
+.task-group .group-heading span { font-size:12px; border-radius:7px; background:#f3f5f9; padding:3px 8px; }
+.employee-task-row { grid-template-columns:26px minmax(0,1fr) 36px; gap:16px; padding:21px 30px; border-radius:14px; margin:0 10px; }
+.employee-task-row:hover { background:#f8faff; }
+.employee-task-row.is-progress { background:#f2f6ff; box-shadow:none; }
+.employee-task-row.is-progress:hover { background:#eaf1ff; box-shadow:none; }
+.employee-task-title { font-size:18px; line-height:1.5; font-weight:550; letter-spacing:-.25px; }
+.employee-task-description { font-size:14px; line-height:1.65; margin-top:6px; color:#7a8499; }
+.task-check { width:23px; height:23px; margin-top:3px; border-width:1.7px; border-color:#bdc7d8; line-height:20px; font-size:14px; }
+.task-meta { gap:9px; margin-top:11px; font-size:12px; color:#8a94a7; }
+.badge,.due-chip { font-size:12px; padding:4px 9px; border-radius:7px; font-weight:500; }
+.task-meta .due-chip { border-color:transparent; background:#f1f4f9; color:#77849a; }
+.task-meta .due-chip.today { border-color:transparent; background:#fff2d7; color:#a66a10; }
+.task-meta .due-chip.overdue { border-color:transparent; background:#ffeaf0; color:#d33358; }
+.task-menu summary { width:36px; height:36px; border-radius:10px; color:#8490a6; }
+.task-menu-popover { width:190px; border-radius:14px; padding:8px; }
+.task-menu-popover .employee-action-btn { font-size:14px; min-height:42px; }
+.btn-primary,.btn-secondary,.row-btn { border-radius:12px; }
+.btn-secondary { font-size:15px; }
+#adminView { max-width:1560px; padding:36px 32px 64px; }
+#adminView>.mb-4 h2 { font-size:28px; letter-spacing:-.8px; }
+.admin-tabs button { font-size:16px; padding:14px 20px; }
+.stat-card,.panel-card,.toolbar-panel,.table-panel { border-radius:18px; }
+.section-title h2 { font-size:20px; }
+.section-title p { font-size:14px; }
+table th { font-size:12px; }
+table td { font-size:15px; }
+.row-btn { font-size:13px; padding:9px 12px; }
+.modal-panel { border-radius:22px; padding:32px; }
+.modal-panel h2 { font-size:26px; letter-spacing:-.8px; }
+.modal-panel .input { font-size:16px; padding:12px 14px; border-radius:12px; }
+.field-label { font-size:14px; }
+.modal-panel .closeModal { font-size:15px; border-radius:10px; }
+.modal-panel p.text-sm { font-size:15px; }
+#loginView { background:#f2f5fd; }
+#loginForm input { font-size:17px; }
+@media(max-width:1100px) {
+ #employeeView { grid-template-columns:245px minmax(0,1fr); gap:24px; padding:28px 24px; }
+ .search-field { flex-basis:100%; }
+ .order-note { max-width:none; flex:1; }
+ .employee-task-row { padding:18px 20px; gap:12px; }
+}
+@media(max-width:680px) {
+ .app-header>div { padding:14px 16px; }
+ .brand-logo { width:95px; }
+ .brand-header h1 { font-size:19px; }
+ #userInfo { font-size:11px; }
+ #employeeView { display:block; padding:20px 12px 40px; }
+ .new-task-btn { min-height:50px; padding:12px 20px; font-size:16px; }
+ #employeeSummary { gap:8px; }
+ #employeeSummary [data-filter] { min-height:48px; padding:8px 12px; border-radius:13px; gap:8px; }
+ #employeeSummary [data-filter] .nav-icon { flex-basis:28px; width:28px; height:28px; border-radius:9px; }
+ .nav-icon svg { width:18px; height:18px; }
+ #employeeSummary [data-filter] .nav-label { font-size:14px; }
+ #employeeSummary [data-filter] strong { font-size:12px; padding:4px 6px; min-width:22px; }
+ .sidebar-link span { font-size:13px; }
+ .workspace-heading { margin:16px 6px 22px; }
+ #employeeGreeting { font-size:32px; }
+ .workspace-heading p:last-child { font-size:14px; }
+ .search-toolbar { gap:10px; }
+ .search-field { min-height:52px; padding:13px 15px; }
+ .order-note { font-size:11px; }
+ .text-button { font-size:13px; }
+ .employee-list-header { padding:24px 20px 10px; }
+ .employee-list-header h2 { font-size:22px; }
+ .task-group .group-heading { margin:22px 20px 10px; }
+ .employee-task-row { grid-template-columns:23px minmax(0,1fr) 28px; padding:18px 12px; margin:0 6px; gap:10px; }
+ .employee-task-title { font-size:17px; }
+ .employee-task-description { font-size:14px; }
+ .task-menu summary { width:28px; }
+ .badge,.due-chip { font-size:11px; padding:4px 7px; }
+ .modal-panel { padding:24px 18px; }
+ #adminView { padding:24px 12px; }
+ .admin-tabs button { font-size:13px; padding:12px 10px; }
 }

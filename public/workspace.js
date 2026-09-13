@@ -3,6 +3,19 @@ let taskSearch = '';
 let activeAdminTab = 'overview';
 let modalReturnFocus = null;
 
+function workspaceIcon(key) {
+  const paths = {
+    all: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8 12 3 3 5-6"/>',
+    today: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
+    overdue: '<circle cx="12" cy="12" r="9"/><path d="M12 7v6m0 3v.1"/>',
+    pending: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6m-6 4h6m-6 4h3"/>',
+    doing: '<circle cx="12" cy="12" r="9"/><path d="m10 8 6 4-6 4Z"/>',
+    next: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18m-13 4h3m3 0h2"/>',
+    done: '<path d="M21 11v1a9 9 0 1 1-5-8M9 11l3 3L22 4"/>'
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[key] || paths.all}</svg>`;
+}
+
 function initWorkspaceUI() {
   $('#taskSearch').addEventListener('input', event => {
     taskSearch = event.target.value;
