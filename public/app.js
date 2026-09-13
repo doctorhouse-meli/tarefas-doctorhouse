@@ -131,7 +131,8 @@ let currentUser = null;
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (typeof pwaLogout === 'function') { try { await pwaLogout(); } catch {} }
     resetNotificationSounds();
     showCompletedRequests = false;
     stopAdminPolling();
@@ -149,6 +150,7 @@ let currentUser = null;
   }
 
   async function initializeAuth() {
+    if (typeof pwaRestoreSession === 'function' && await pwaRestoreSession()) return;
     const savedLogin = getSessionLogin();
     if (!savedLogin || !savedLogin.email || !savedLogin.senha) {
       showLogin();
@@ -167,6 +169,7 @@ let currentUser = null;
     try {
       currentUser = await callServer('loginUser', savedLogin.email, savedLogin.senha);
       authToken = currentUser.token || '';
+      if (typeof pwaSaveSession === 'function') pwaSaveSession(authToken);
       await enterDashboard();
     } catch (error) {
       clearSessionLogin();
@@ -199,9 +202,13 @@ let currentUser = null;
       startEmployeePolling();
     }
     maybeShowNotificationPrompt();
+    if (typeof pwaRefresh === 'function') void pwaRefresh();
   }
 
   function saveSessionLogin(email, senha) {
+    if (typeof pwaStandalone === 'function' && pwaStandalone()) {
+      clearSessionLogin(); pwaSaveSession(authToken); return;
+    }
     const login = {
       email,
       senha,
@@ -618,6 +625,11 @@ let currentUser = null;
     renderEmployeeSummary(tasks);
     renderEmployeeRequests(currentEmployeeRequests);
     renderEmployeeTasks(applyEmployeeTaskFilter(tasks));
+    if (typeof pwaOpenTask === 'function') await pwaOpenTask();
+    if (navigator.setAppBadge) {
+      const pending=tasks.filter(task=>task.status!=='Concluida').length;
+      (pending ? navigator.setAppBadge(pending) : navigator.clearAppBadge()).catch(()=>{});
+    }
   }
 
   async function loadEmployeeTemplates() {
@@ -1320,6 +1332,7 @@ let currentUser = null;
   }
 
   function maybeShowNotificationPrompt() {
+    if (typeof pwaIos === 'function' && (pwaIos() || pwaStandalone())) return;
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
       localStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
@@ -1548,17 +1561,21 @@ let currentUser = null;
   }
 
   function showBrowserNotification(task) {
+    if (typeof pwaPushActive !== 'undefined' && pwaPushActive) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-    new Notification('Nova tarefa recebida', {
+    const options = {
       body: `${task.titulo} - Prazo: ${formatTaskSchedule(task)}`,
       tag: task.id,
-    });
+    };
+    if (typeof pwaRegistration !== 'undefined' && pwaRegistration) pwaRegistration.showNotification('Nova tarefa recebida',options).catch(()=>{});
+    else { try { new Notification('Nova tarefa recebida',options); } catch {} }
   }
 
   function showBrowserStatusNotification(title, body, tag) {
+    if (typeof pwaPushActive !== 'undefined' && pwaPushActive) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    new Notification(title, { body, tag });
+    if (typeof pwaRegistration !== 'undefined' && pwaRegistration) pwaRegistration.showNotification(title,{body,tag}).catch(()=>{});
+    else { try { new Notification(title, { body, tag }); } catch {} }
   }
 
   function unlockNotificationSound() {

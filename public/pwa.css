@@ -1,0 +1,20 @@
+.pwa-tools{padding:12px 24px;background:#eef1ff;border-bottom:1px solid #dce2fa;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pwa-tools p{flex:1;min-width:180px;margin:0;font-size:14px;color:#43517b}
+.pwa-tools button{min-height:44px}
+[hidden]{display:none!important}
+.pwa-install-help{max-width:560px;margin:16px auto;padding:22px;background:#fff;border:1px solid #dce2fa;border-radius:18px;line-height:1.65}
+.pwa-install-help h2{font-size:20px;font-weight:650}.pwa-install-help ol{list-style:decimal;padding-left:22px}
+#connectionNotice{background:#fff2cf;color:#73500c;padding:12px 20px;text-align:center;position:sticky;top:0;z-index:80}
+body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+@media(display-mode:standalone){body{overscroll-behavior-y:contain}header{padding-top:env(safe-area-inset-top)}}
+@media(max-width:700px){
+  input,select,textarea{font-size:16px!important}button,.btn-primary,.btn-secondary{min-height:44px}
+  .pwa-tools{padding:12px 14px}.pwa-tools p{flex-basis:100%}.pwa-install-help{margin:12px}
+  .workspace-heading{gap:12px;flex-wrap:wrap}.workspace-heading h2{font-size:28px}
+  .admin-tabs{overflow-x:auto;flex-wrap:nowrap;justify-content:flex-start}.admin-tabs button{flex-shrink:0;white-space:nowrap}
+  .modal{padding:12px;padding-top:max(12px,env(safe-area-inset-top));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+  .modal-panel{max-height:calc(100dvh - 40px);overflow-y:auto;overscroll-behavior:contain}
+  .sound-option{flex-wrap:wrap}.sound-option label{min-width:150px}
+  .recurrence-card{padding:18px}.recurrence-card dl{grid-template-columns:1fr}.recurrence-actions{justify-content:flex-start}
+  #taskAlert{max-width:calc(100vw - 32px)}
+}

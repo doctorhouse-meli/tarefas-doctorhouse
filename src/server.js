@@ -4,21 +4,29 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDb, makeId, pool, query } from './db.js';
 import { DEFAULT_NOTIFICATION_SETTINGS, validateNotificationSettings } from './notification-settings.js';
+import { initPush, createPushService } from './push.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+const pushService = createPushService(query);
 const TZ = 'America/Sao_Paulo';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'troque-esta-chave-no-railway';
 
 let initialized = false;
+let initializationPromise;
 
 export async function init() {
   if (initialized) return;
+  if (initializationPromise) return initializationPromise;
   if (!process.env.DATABASE_URL) {
     throw new Error('Configure DATABASE_URL no Railway ou no arquivo .env local.');
   }
-  await initDb();
-  initialized = true;
+  initializationPromise = (async () => {
+    await initDb();
+    await initPush(query);
+    initialized = true;
+  })().catch(error => { initializationPromise = null; throw error; });
+  return initializationPromise;
 }
 
 function normalizeEmail(email) {
@@ -811,6 +819,16 @@ async function markDailyTaskAsIgnored(task) {
 }
 
 export async function generateDailyTasks() {
+  const client = await pool.connect();
+  try {
+    const lock = await client.query("SELECT pg_try_advisory_lock(hashtext('doctorhouse-daily-generation')) AS locked");
+    if (!lock.rows[0].locked) return { created: 0 };
+    try { return await generateDailyTasksUnlocked(); }
+    finally { await client.query("SELECT pg_advisory_unlock(hashtext('doctorhouse-daily-generation'))"); }
+  } finally { client.release(); }
+}
+
+async function generateDailyTasksUnlocked() {
   const date = todayKey();
   const weekday = weekdayKey(date);
   const result = await query('SELECT * FROM templates_diarios ORDER BY titulo');
@@ -1007,6 +1025,21 @@ function authorizeRpc(functionName, args, req) {
 export function createApp() {
   const app = express();
   app.use(express.json({ limit: '1mb' }));
+  app.use('/api/pwa', async (req,res) => {
+    res.setHeader('Cache-Control','no-store');
+    try {
+      await init();
+      const identity = getBearerUser(req);
+      const user = await getUserByEmail(identity.email);
+      if (!user) return res.status(401).json({error:'Sessão inválida.'});
+      if (req.method === 'GET' && req.path === '/session') return res.json(sanitizeUser(user));
+      if (req.method === 'GET' && req.path === '/key') return res.json({publicKey:await pushService.publicKey()});
+      if (req.method === 'POST' && req.path === '/subscription') return res.json(await pushService.subscribe(user.email,req.body));
+      if (req.method === 'DELETE' && req.path === '/subscription') return res.json(await pushService.unsubscribe(user.email,req.body.endpoint));
+      if (req.method === 'POST' && req.path === '/test') return res.json(await pushService.test(user.email,req.body.endpoint));
+      res.status(404).json({error:'Recurso não encontrado.'});
+    } catch(error) { res.status(/Sessao|Sessão/.test(error.message) ? 401 : 400).json({error:error.message}); }
+  });
   app.use(express.static(PUBLIC_DIR, {
     setHeaders(res, filePath) {
       if (/\.(html|css|js)$/i.test(filePath)) {
@@ -1047,4 +1080,18 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   createApp().listen(port, () => {
     console.log(`Dashboard de tarefas rodando na porta ${port}`);
   });
+  // The installed app can be closed: generation and delivery run on the server.
+  let backgroundBusy = false, lastGeneration = 0;
+  const tick = async () => {
+    if (backgroundBusy) return;
+    backgroundBusy = true;
+    try {
+      await init();
+      if (Date.now() - lastGeneration > 60000) { await generateDailyTasks(); lastGeneration = Date.now(); }
+      await pushService.dispatch();
+    } catch { console.error('Falha temporária no serviço de notificações; nova tentativa em 15 segundos.'); }
+    finally { backgroundBusy = false; }
+  };
+  setInterval(tick,15000).unref();
+  void tick();
 }

@@ -4,12 +4,35 @@
     <base target="_top">
     <meta charset="UTF-8">
     <title>Doctor House • Tarefas</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#4059de">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DH Tarefas">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-11">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-12">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-12">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
+    <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
+    <section class="pwa-tools" aria-label="Aplicativo e notificações">
+      <p id="pwaStatus" role="status">Leve suas tarefas para a tela inicial do celular.</p>
+      <button id="pwaInstallButton" type="button" class="btn-secondary">Instalar app</button>
+      <button id="pwaPushButton" type="button" class="btn-primary" hidden>Ativar notificações</button>
+      <button id="pwaTestPush" type="button" class="btn-secondary" hidden>Testar notificação</button>
+      <button id="pwaStopPush" type="button" class="text-button" hidden>Desativar avisos</button>
+      <button id="pwaUpdate" type="button" class="btn-primary" hidden>Atualizar app</button>
+    </section>
+    <section id="pwaInstallHelp" class="pwa-install-help" hidden aria-label="Como instalar">
+      <h2>Doctor House no celular</h2>
+      <ol><li>Abra este endereço no Safari do iPhone.</li><li>Toque em Compartilhar e em <strong>Adicionar à Tela de Início</strong>. Se necessário, abra Mais para encontrar essa opção.</li><li>Mantenha <strong>Abrir como App</strong> ativado, se aparecer, e confirme em Adicionar.</li><li>Abra pelo novo ícone, entre na sua conta e toque em <strong>Ativar notificações</strong>.</li></ol>
+      <p>No Android ou computador, use Instalar app no menu do navegador. As notificações no iPhone exigem iOS 16.4 ou posterior. O iOS controla o som com o app fechado. Para consultar e alterar tarefas, conecte-se à internet.</p>
+      <button id="pwaCloseHelp" type="button" class="btn-secondary">Entendi</button>
+    </section>
     <main id="app" class="min-h-screen">
       <section id="authLoadingView" class="flex min-h-screen items-center justify-center p-4">
         <div class="rounded-lg bg-white p-6 text-center shadow-sm ring-1 ring-slate-200">
@@ -31,7 +54,7 @@
               <span class="text-sm font-medium">Senha</span>
               <input id="loginPassword" type="password" required autocomplete="current-password" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 outline-none focus:border-slate-900">
             </label>
-            <p class="text-xs text-slate-500">Sua sessao fica ativa enquanto esta aba do navegador estiver aberta.</p>
+            <p class="text-xs text-slate-500">No app instalado, sua sessão fica disponível por até 12 horas.</p>
             <button class="w-full rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700" type="submit">Entrar</button>
             <p id="loginError" class="hidden rounded-md bg-red-50 p-3 text-sm text-red-700"></p>
           </form>
@@ -542,11 +565,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/admin-recurrences.js?v=20260913-11"></script>
-    <script src="/notification-sounds.js?v=20260913-11"></script>
-    <script src="/app.js?v=20260913-11"></script>
-  <script src="/workspace.js?v=20260913-11"></script>
-  <script src="/task-creator.js?v=20260913-11"></script>
+    <script src="/pwa.js?v=20260913-12"></script>
+    <script src="/admin-recurrences.js?v=20260913-12"></script>
+    <script src="/notification-sounds.js?v=20260913-12"></script>
+    <script src="/app.js?v=20260913-12"></script>
+  <script src="/workspace.js?v=20260913-12"></script>
+  <script src="/task-creator.js?v=20260913-12"></script>
   </body>
 </html>
 
