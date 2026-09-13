@@ -42,12 +42,12 @@ function initWorkspaceUI() {
     modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true');
     const heading = modal.querySelector('h2');
     if (heading) { heading.id ||= `${modal.id}-title`; modal.setAttribute('aria-labelledby', heading.id); }
-    modal.addEventListener('click', event => { if (event.target === modal) closeModals(); });
+    modal.addEventListener('click', event => { if (event.target === modal && modal.id !== 'taskModal') closeModals(); });
   });
   document.addEventListener('keydown', event => {
     const modal = $$('.modal').find(item => !item.classList.contains('hidden'));
     if (!modal) return;
-    if (event.key === 'Escape') closeModals();
+    if (event.key === 'Escape' && modal.id !== 'taskModal') closeModals();
     if (event.key !== 'Tab') return;
     const fields = Array.from(modal.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]')).filter(item => !item.disabled && item.getClientRects().length);
     const first = fields[0], last = fields.at(-1);

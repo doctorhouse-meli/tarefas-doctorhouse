@@ -2,6 +2,7 @@ let currentUser = null;
   let authToken = '';
   let adminData = { tasks: [], usuarios: [], colaboradores: [], workspaces: [], stats: {} };
   let selectedTask = null;
+  let taskSavePending = false;
   let titleAlertLabel = 'Nova tarefa!';
   let adminPollTimer = null;
   let employeePollTimer = null;
@@ -233,10 +234,17 @@ let currentUser = null;
     return cookie ? decodeURIComponent(cookie.slice(prefix.length)) : '';
   }
 
-  async function loadAdmin() {
-    $('#adminView').classList.remove('hidden');
-    $('#employeeView').classList.add('hidden');
-    adminData = await callServer('getAdminDashboardData');
+  async function loadAdmin(background = false) {
+    if (!background) {
+      $('#adminView').classList.remove('hidden');
+      $('#employeeView').classList.add('hidden');
+    }
+    const userEmail = currentUser?.email;
+    const result = await callServer('getAdminDashboardData');
+    // A poll may finish after an editor opens or after navigation/logout.
+    if (currentUser?.email !== userEmail) return;
+    if (background && isAdminRefreshBlocked()) return;
+    adminData = result;
     notifyAdminCompletionNotes(adminData.tasks || []);
     renderAdminStats();
     renderAdminTodayPanel();
@@ -247,6 +255,12 @@ let currentUser = null;
     }
     renderAdminTasks();
     renderAdminUsers();
+  }
+
+  function isAdminRefreshBlocked() {
+    return !currentUser || currentUser.perfil !== 'Admin' || $('#adminView').classList.contains('hidden') ||
+      $$('.modal').some(modal => !modal.classList.contains('hidden')) ||
+      activeAdminTab === 'create' || taskCreatorSaving || taskSavePending;
   }
 
   async function openAdminControl() {
@@ -271,7 +285,7 @@ let currentUser = null;
       if ($$('.modal').some((modal) => !modal.classList.contains('hidden')) || activeAdminTab === 'create' || taskCreatorSaving) return;
 
       try {
-        await loadAdmin();
+        await loadAdmin(true);
       } catch (error) {
         console.log('Falha ao atualizar painel admin.', error);
       }
@@ -343,15 +357,21 @@ let currentUser = null;
     setSelectValueIfExists($('#filterStatus'), selectedStatus);
 
     $$('.employeeSelect').forEach((select) => {
+      if (select.closest('.modal:not(.hidden)')) return;
+      const previous = select.value;
       select.innerHTML = responsaveis
         .map((user) => `<option value="${escapeHtml(user.email)}">${escapeHtml(formatUserOptionLabel(user))}</option>`)
         .join('');
+      setSelectValueIfExists(select, previous);
     });
 
     $$('.workspaceSelect').forEach((select) => {
+      if (select.closest('.modal:not(.hidden)')) return;
+      const previous = select.value;
       select.innerHTML = adminData.workspaces
         .map((workspace) => `<option value="${escapeHtml(workspace.nome)}">${escapeHtml(workspace.nome)}</option>`)
         .join('');
+      setSelectValueIfExists(select, previous);
     });
   }
 
@@ -383,7 +403,7 @@ let currentUser = null;
     });
 
     $('#adminTaskRows').innerHTML = tasks.map((task) => `
-      <tr>
+      <tr data-task-row="${escapeHtml(task.id)}">
         <td class="px-4 py-3">
           <div class="font-black text-slate-900">${escapeHtml(task.titulo)}</div>
           <div class="text-xs text-slate-500">${escapeHtml(task.workspace || '')}</div>
@@ -484,6 +504,7 @@ let currentUser = null;
   }
 
   function resetTaskForm() {
+    $('#taskSaveError').classList.add('hidden');
     $('#taskModalTitle').textContent = 'Nova Tarefa';
     const form = $('#taskForm');
     form.reset();
@@ -495,6 +516,7 @@ let currentUser = null;
     const task = adminData.tasks.find((item) => item.id === taskId);
     if (!task) return;
 
+    $('#taskSaveError').classList.add('hidden');
     $('#taskModalTitle').textContent = 'Editar Tarefa';
     const form = $('#taskForm');
     form.elements.id.value = task.id;
@@ -511,20 +533,54 @@ let currentUser = null;
 
   async function handleSaveTask(event) {
     event.preventDefault();
-    const data = formToObject(event.target);
-    data.autorEmail = currentUser.email;
-
-    if (data.id) {
-      await callServer('updateTask', data.id, data);
-      showToast('Tarefa atualizada.');
-    } else {
-      await callServer('createTask', data);
-      showToast('Tarefa criada.');
+    if (taskSavePending) return;
+    const form = event.target;
+    const errorBox = $('#taskSaveError');
+    errorBox.classList.add('hidden');
+    const data = formToObject(form);
+    data.titulo = String(data.titulo || '').trim();
+    if (!data.titulo) {
+      errorBox.textContent = 'Informe o título da tarefa antes de salvar.';
+      errorBox.classList.remove('hidden');
+      form.elements.titulo.focus();
+      return;
     }
+    data.autorEmail = currentUser.email;
+    taskSavePending = true;
+    const button = form.querySelector('button[type=submit]');
+    button.disabled = true; button.textContent = 'Salvando…';
+    let saved;
+    try {
+      saved = data.id ? await callServer('updateTask', data.id, data) : await callServer('createTask', data);
+    } catch (error) {
+      errorBox.textContent = error.message || 'Não foi possível salvar. Seus dados continuam no formulário.';
+      errorBox.classList.remove('hidden');
+      return;
+    } finally {
+      taskSavePending = false;
+      button.disabled = false; button.textContent = 'Salvar';
+    }
+    keepEditedTaskVisible({ ...data, ...saved });
+    form.reset(); closeModals();
+    showToast(data.id ? 'Tarefa atualizada.' : 'Tarefa criada.');
+    try {
+      await loadAdmin();
+      const row = $$('#adminTaskRows tr[data-task-row]').find(row => row.dataset.taskRow === (saved?.id || data.id));
+      if (row) {
+        row.classList.add('task-just-saved');
+        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    } catch {
+      showToast('Tarefa salva. Não foi possível atualizar a lista; recarregue a página.');
+    }
+  }
 
-    event.target.reset();
-    closeModals();
-    await loadAdmin();
+  function keepEditedTaskVisible(task) {
+    for (const [selector, value] of [['#filterEmployee', task.atribuidoPara], ['#filterWorkspace', task.workspace], ['#filterStatus', task.status]]) {
+      const filter = $(selector);
+      if (filter.value && filter.value !== value) filter.value = value;
+    }
+    if (!matchesTaskSearch(task, $('#adminSearch').value)) $('#adminSearch').value = '';
   }
 
   async function handleDeleteTask(taskId) {
@@ -1184,7 +1240,7 @@ let currentUser = null;
         const value = String(index).padStart(2, '0');
         return `<option value="${value}">${value}</option>`;
       }).join('');
-      minute.innerHTML = '<option value="">Min</option>' + ['00', '15', '30', '45'].map((value) => `<option value="${value}">${value}</option>`).join('');
+      minute.innerHTML = '<option value="">Min</option>' + Array.from({ length: 60 }, (_, index) => String(index).padStart(2, '0')).map((value) => `<option value="${value}">${value}</option>`).join('');
 
       const sync = () => {
         hidden.value = hour.value && minute.value ? `${hour.value}:${minute.value}` : '';
@@ -1226,6 +1282,7 @@ let currentUser = null;
   }
 
   function closeModals() {
+    if (taskSavePending) return;
     $$('.modal').forEach(modal => modal.classList.add('hidden'));
     document.body.classList.remove('modal-open');
     if (modalReturnFocus?.isConnected) modalReturnFocus.focus();

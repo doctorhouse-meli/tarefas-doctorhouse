@@ -1,4 +1,6 @@
 :root { --ink:#20283e; --muted:#69748b; --accent:#4263eb; --pale:#edf0ff; --line:#e8ecf3; }
+#adminTaskRows tr.task-just-saved { outline:2px solid #9ab0ff; outline-offset:-2px; }
+#taskForm button:disabled { opacity:.65; cursor:wait; }
 .creator-page { max-width:1180px; margin:0 auto; }
 .creator-heading { margin:28px 0; }
 .creator-heading h2 { font-size:32px; font-weight:650; letter-spacing:-1px; }
