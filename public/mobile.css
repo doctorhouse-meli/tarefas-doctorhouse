@@ -25,10 +25,12 @@
   .workspace-sidebar { position:static; }
   .nav-caption,.sidebar-note { display:none; }
   .new-task-btn { width:auto; min-height:44px; font-size:14px; padding:10px 16px; }
-  #employeeSummary { display:flex; overflow-x:auto; gap:6px; padding:12px 0 6px; scroll-padding-inline:4px; scrollbar-width:thin; }
-  #employeeSummary [data-filter] { width:auto; flex-shrink:0; min-height:44px; padding:8px 10px; gap:6px; }
+  #employeeSummary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; gap:6px; padding:12px 0 6px; }
+  #employeeSummary [data-filter] { width:100%; min-width:0; min-height:44px; padding:8px 10px; gap:6px; }
+  #employeeSummary [data-filter="all"] { grid-column:1/-1; }
   #employeeSummary [data-filter] .nav-icon { display:none; }
-  #employeeSummary [data-filter] .nav-label { font-size:13px; }
+  #employeeSummary [data-filter] .nav-label { min-width:0; font-size:13px; white-space:normal; overflow-wrap:anywhere; }
+  #employeeSummary [data-filter] strong { flex-shrink:0; }
   .sidebar-tools { display:flex; flex-wrap:wrap; margin:0; padding:4px 0; gap:4px; border:0; }
   .sidebar-link { width:auto; min-height:44px; padding:8px; }
   .sidebar-link span { font-size:13px; }
