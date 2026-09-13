@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDb, makeId, pool, query } from './db.js';
+import { DEFAULT_NOTIFICATION_SETTINGS, validateNotificationSettings } from './notification-settings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -877,7 +878,20 @@ export async function getTaskHistory(taskId) {
   return result.rows.map(formatHistoryItem);
 }
 
+export async function getNotificationSettings() {
+  const result = await query('SELECT value FROM app_settings WHERE key = $1', ['notification_sound']);
+  return result.rows[0]?.value || { ...DEFAULT_NOTIFICATION_SETTINGS };
+}
+
+export async function saveNotificationSettings(data) {
+  const settings = validateNotificationSettings(data);
+  await query('INSERT INTO app_settings (key, value) VALUES ($1, $2::jsonb) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', ['notification_sound', JSON.stringify(settings)]);
+  return settings;
+}
+
 const rpc = {
+  getNotificationSettings,
+  saveNotificationSettings,
   loginUser,
   getAdminDashboardData,
   getWorkspaces,
@@ -909,6 +923,7 @@ const rpc = {
 };
 
 const adminOnly = new Set([
+  'saveNotificationSettings',
   'getAdminDashboardData',
   'getWorkspaces',
   'createWorkspace',

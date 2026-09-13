@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-06">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-07">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -61,8 +61,19 @@
             <div class="flex flex-wrap gap-2"><button id="backToMyTasksBtn" type="button" class="btn-secondary">Minhas tarefas</button><button type="button" data-open-task-creator class="btn-primary">＋ Criar tarefa</button></div>
           </div>
 
-          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="users">Pessoas e espaços</button></nav>
-          <section data-admin-panel="create" class="creator-page hidden" aria-labelledby="creatorHeading">
+          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="users">Pessoas e espaços</button><button data-admin-tab="sounds">Sons dos avisos</button></nav>
+          <section data-admin-panel="sounds" class="panel-card sound-settings hidden" aria-labelledby="soundSettingsTitle">
+<h2 id="soundSettingsTitle">Sons dos avisos</h2>
+<p>Escolha o aviso de novas tarefas para toda a equipe. Ouça as opções antes de salvar.</p>
+<form id="soundSettingsForm">
+<fieldset id="soundChoices"><legend>Som da notificação</legend><div id="soundOptions" class="sound-options"></div></fieldset>
+<div class="sound-controls"><label for="soundVolume">Volume: <output id="soundVolumeValue" for="soundVolume">70%</output><input id="soundVolume" type="range" min="0" max="100" value="70"></label>
+<label for="soundRepeat">Repetir o toque<select id="soundRepeat" class="input"><option value="1">Uma vez</option><option value="2">Duas vezes</option><option value="3">Três vezes</option></select></label></div>
+<p class="sound-hint">Vale para toda a equipe, inclusive em outros computadores. O som toca com o painel aberto, após uma interação na página; o volume do computador também precisa estar ligado.</p>
+<p id="soundSettingsStatus" role="status" aria-live="polite"></p>
+<div class="sound-actions"><button id="previewSelectedSound" type="button" class="btn-secondary">Ouvir seleção</button><button id="saveSoundSettings" type="submit" class="btn-primary">Salvar para toda a equipe</button></div>
+</form></section>
+<section data-admin-panel="create" class="creator-page hidden" aria-labelledby="creatorHeading">
             <div class="creator-heading"><p class="eyebrow">NOVA ATIVIDADE</p><h2 id="creatorHeading">Criar tarefa</h2><p>Defina o que precisa ser feito e escolha se a tarefa deve se repetir.</p></div>
             <form id="taskCreatorForm" class="creator-form">
               <div class="creator-main">
@@ -501,9 +512,10 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260913-06"></script>
-  <script src="/workspace.js?v=20260913-06"></script>
-  <script src="/task-creator.js?v=20260913-06"></script>
+    <script src="/notification-sounds.js?v=20260913-07"></script>
+    <script src="/app.js?v=20260913-07"></script>
+  <script src="/workspace.js?v=20260913-07"></script>
+  <script src="/task-creator.js?v=20260913-07"></script>
   </body>
 </html>
 

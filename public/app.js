@@ -33,6 +33,7 @@ let currentUser = null;
   document.addEventListener('DOMContentLoaded', () => {
     initWorkspaceUI();
     initTaskCreator();
+    initNotificationSounds();
     initTimeSelectors();
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#logoutBtn').addEventListener('click', logout);
@@ -127,6 +128,7 @@ let currentUser = null;
   }
 
   function logout() {
+    resetNotificationSounds();
     showCompletedRequests = false;
     stopAdminPolling();
     stopEmployeePolling();
@@ -243,6 +245,7 @@ let currentUser = null;
     }
     const userEmail = currentUser?.email;
     const result = await callServer('getAdminDashboardData');
+    if (currentUser?.email === userEmail && !(background && isAdminRefreshBlocked())) await refreshNotificationSettings();
     // A poll may finish after an editor opens or after navigation/logout.
     if (currentUser?.email !== userEmail) return;
     if (background && isAdminRefreshBlocked()) return;
@@ -599,6 +602,7 @@ let currentUser = null;
     $('#adminView').classList.add('hidden');
     $('#openAdminControlBtn').classList.toggle('hidden', currentUser?.perfil !== 'Admin');
     $('#openRequestAdminBtn').classList.toggle('hidden', !canRequestAdmin());
+    await refreshNotificationSettings();
     const tasks = prepareEmployeeTasks(await callServer('getEmployeeTasks', currentUser.email));
     currentEmployeeTasks = tasks;
     currentEmployeeRequests = canRequestAdmin() ? await callServer('getMyAdminRequests', currentUser.email) : [];
@@ -1558,7 +1562,7 @@ let currentUser = null;
     }
   }
 
-  function playNotificationSound() {
+  function playLegacyNotificationSound(volume = 70, offset = 0) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
 
@@ -1567,10 +1571,10 @@ let currentUser = null;
       audioContext.resume().catch(() => {});
     }
 
-    const now = audioContext.currentTime;
-    playTone(now, 740, 0.2, 0.45);
-    playTone(now + 0.22, 988, 0.22, 0.55);
-    playTone(now + 0.48, 1319, 0.28, 0.5);
+    const now = audioContext.currentTime + offset;
+    playTone(now, 740, 0.2, 0.45 * volume / 70);
+    playTone(now + 0.22, 988, 0.22, 0.55 * volume / 70);
+    playTone(now + 0.48, 1319, 0.28, 0.5 * volume / 70);
   }
 
   function playTone(startTime, frequency, duration, volume) {
@@ -1585,6 +1589,7 @@ let currentUser = null;
 
     oscillator.connect(gain);
     gain.connect(audioContext.destination);
+    trackNotificationNode(oscillator);
     oscillator.start(startTime);
     oscillator.stop(startTime + duration + 0.02);
   }

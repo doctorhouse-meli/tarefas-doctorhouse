@@ -20,6 +20,11 @@ export async function closeDb() {
 
 export async function initDb() {
   await query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS workspaces (
       id TEXT PRIMARY KEY,
       nome TEXT NOT NULL UNIQUE,

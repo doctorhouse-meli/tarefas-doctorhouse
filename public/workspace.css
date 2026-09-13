@@ -345,3 +345,23 @@ table td { font-size:15px; }
  #adminView { padding:24px 12px; }
  .admin-tabs button { font-size:13px; padding:12px 10px; }
 }
+.sound-settings { max-width:1050px; margin:24px auto; padding:28px; }
+.sound-settings h2 { font-size:28px; margin-bottom:8px; }
+.sound-settings>p,.sound-hint { color:var(--muted); line-height:1.6; }
+.sound-settings fieldset { border:0; margin:24px 0; padding:0; }
+.sound-settings legend { font-weight:600; margin-bottom:14px; }
+.sound-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.sound-option { display:flex; align-items:center; gap:12px; border:1px solid var(--line); border-radius:16px; padding:16px; background:white; }
+.sound-option:has(input:checked) { border-color:var(--accent); background:#f0f3ff; box-shadow:0 0 0 1px var(--accent); }
+.sound-option label { display:flex; flex:1; align-items:center; gap:12px; cursor:pointer; }
+.sound-option input { width:20px; height:20px; accent-color:var(--accent); flex-shrink:0; }
+.sound-option strong,.sound-option small { display:block; }
+.sound-option small { color:var(--muted); margin-top:5px; line-height:1.4; }
+.sound-option button { white-space:nowrap; padding:8px 12px; }
+.sound-controls { display:grid; grid-template-columns:1fr 1fr; gap:28px; margin:24px 0; }
+.sound-controls label { display:block; font-weight:600; }
+.sound-controls input { display:block; width:100%; margin-top:18px; accent-color:var(--accent); }
+.sound-controls select { margin-top:8px; }
+.sound-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:12px; margin-top:20px; }
+#soundSettingsStatus { margin-top:16px; color:var(--accent); }
+@media(max-width:700px) { .sound-options,.sound-controls { grid-template-columns:1fr; } .sound-settings { padding:18px; } }
