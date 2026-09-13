@@ -5,7 +5,7 @@ import fs from 'node:fs';
 
 function workspace() {
   const context = vm.createContext({ document: { title: '', addEventListener() {} } });
-  for (const file of ['app.js', 'workspace.js']) {
+  for (const file of ['app.js', 'workspace.js', 'task-creator.js']) {
     vm.runInContext(fs.readFileSync(new URL('../public/' + file, import.meta.url), 'utf8'), context);
   }
   vm.runInContext(`const sample = [
@@ -61,4 +61,15 @@ test('mesmo prazo desempata pela criação e concluídas também seguem ordem an
     {...sample[2], id:'new', dataCriacaoSort:200},
     {...sample[2], id:'old', dataCriacaoSort:100}
   ]).map(t=>t.id).join(',')`), 'old,new');
+});
+
+test('repetição converte opções para os dias usados pelo agendador existente', () => {
+  const run = workspace();
+  assert.equal(run(`creatorRepeatDays('none')`), '');
+  assert.equal(run(`creatorRepeatDays('daily')`), '0,1,2,3,4,5,6');
+  assert.equal(run(`creatorRepeatDays('weekdays')`), '1,2,3,4,5');
+  assert.equal(run(`creatorRepeatDays('weekly', '0')`), '0');
+  assert.equal(run(`creatorRepeatDays('custom', '', ['5','1','5','0'])`), '0,1,5');
+  assert.throws(() => run(`creatorRepeatDays('custom', '', [])`), /pelo menos um dia/);
+  assert.throws(() => run(`creatorRepeatDays('weekly', '8')`), /dia da semana/);
 });

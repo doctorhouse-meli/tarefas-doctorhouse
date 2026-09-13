@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-03">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-04">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -58,10 +58,35 @@
               <h2 class="text-lg font-black text-slate-950">Gestão da equipe</h2>
               <p class="text-sm text-slate-500">Acompanhe prioridades, prazos, equipe e tarefas de todos os responsaveis.</p>
             </div>
-            <button id="backToMyTasksBtn" type="button" class="btn-secondary">Minhas tarefas</button>
+            <div class="flex flex-wrap gap-2"><button id="backToMyTasksBtn" type="button" class="btn-secondary">Minhas tarefas</button><button type="button" data-open-task-creator class="btn-primary">＋ Criar tarefa</button></div>
           </div>
 
-          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="users">Pessoas e espaços</button></nav><div data-admin-panel="overview" class="grid gap-3 sm:grid-cols-4">
+          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="users">Pessoas e espaços</button></nav>
+          <section data-admin-panel="create" class="creator-page hidden" aria-labelledby="creatorHeading">
+            <div class="creator-heading"><p class="eyebrow">NOVA ATIVIDADE</p><h2 id="creatorHeading">Criar tarefa</h2><p>Defina o que precisa ser feito e escolha se a tarefa deve se repetir.</p></div>
+            <form id="taskCreatorForm" class="creator-form">
+              <div class="creator-main">
+                <label class="field-label" for="creatorTitle">Título da tarefa *<input id="creatorTitle" class="input" name="titulo" required placeholder="O que precisa ser feito?"></label>
+                <label class="field-label" for="creatorDescription">Descrição<textarea id="creatorDescription" class="input" name="descricao" rows="4" placeholder="Adicione instruções, links ou informações importantes"></textarea></label>
+                <div class="creator-two-columns">
+                  <label class="field-label" for="creatorEmployee">Responsável *<select id="creatorEmployee" class="input" name="atribuidoPara" required></select></label>
+                  <label class="field-label" for="creatorWorkspace">Workspace *<select id="creatorWorkspace" class="input" name="workspace" required></select></label>
+                </div>
+                <label class="field-label" for="creatorPriority">Prioridade<select id="creatorPriority" class="input" name="prioridade"><option value="Baixa">Baixa</option><option value="Media" selected>Média</option><option value="Alta">Alta</option><option value="Urgente">Urgente</option></select></label>
+              </div>
+              <aside class="creator-schedule" aria-label="Prazo e repetição">
+                <div><span class="creator-repeat-icon" aria-hidden="true">↻</span><h3>Prazo e repetição</h3><p>Uma vez ou sempre que precisar.</p></div>
+                <label class="field-label" for="creatorRepeat">Repetir<select id="creatorRepeat" class="input"><option value="none">Não repetir</option><option value="daily">Todos os dias</option><option value="weekdays">Dias úteis — segunda a sexta</option><option value="weekly">Toda semana</option><option value="custom">Personalizar dias da semana</option></select></label>
+                <label id="creatorDateField" class="field-label" for="creatorDate">Prazo *<input id="creatorDate" class="input" name="dataPrazo" type="date" required></label>
+                <label id="creatorWeeklyField" class="field-label hidden" for="creatorWeekday">Em qual dia?<select id="creatorWeekday" class="input"><option value="1">Segunda-feira</option><option value="2">Terça-feira</option><option value="3">Quarta-feira</option><option value="4">Quinta-feira</option><option value="5">Sexta-feira</option><option value="6">Sábado</option><option value="0">Domingo</option></select></label>
+                <fieldset id="creatorCustomDays" class="hidden"><legend>Dias da repetição *</legend><div class="creator-weekdays"><label><input type="checkbox" name="creatorDays" value="1" checked><span>Seg</span></label><label><input type="checkbox" name="creatorDays" value="2" checked><span>Ter</span></label><label><input type="checkbox" name="creatorDays" value="3" checked><span>Qua</span></label><label><input type="checkbox" name="creatorDays" value="4" checked><span>Qui</span></label><label><input type="checkbox" name="creatorDays" value="5" checked><span>Sex</span></label><label><input type="checkbox" name="creatorDays" value="6" ><span>Sáb</span></label><label><input type="checkbox" name="creatorDays" value="0" ><span>Dom</span></label></div></fieldset>
+                <label class="field-label" for="creatorTime">Horário do prazo (opcional)<input id="creatorTime" class="input" name="horarioPrazo" type="time"></label>
+                <p id="creatorRepeatSummary" class="creator-summary" role="status"></p>
+              </aside>
+              <div class="creator-footer"><p id="creatorError" class="creator-error hidden" role="alert"></p><span>Os campos com * são obrigatórios.</span><div><button id="creatorCancel" type="button" class="btn-secondary">Voltar</button><button id="creatorSubmit" class="btn-primary" type="submit">Criar tarefa</button></div></div>
+            </form>
+          </section>
+<div data-admin-panel="overview" class="grid gap-3 sm:grid-cols-4">
             <div class="stat-card stat-pending">
               <p class="text-sm text-slate-500">Pendentes</p>
               <p id="statPendente" class="mt-2 text-3xl font-semibold"></p>
@@ -122,8 +147,8 @@
               </label>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button data-modal="taskModal" data-mode="create" class="btn-primary">Nova Tarefa</button>
-              <button data-modal="templateModal" class="btn-secondary">Novo Modelo Diario</button>
+
+
               <button data-modal="userModal" data-mode="create" class="btn-secondary">Novo Usuario</button>
 
             </div>
@@ -476,8 +501,9 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260913-03"></script>
-  <script src="/workspace.js?v=20260913-03"></script>
+    <script src="/app.js?v=20260913-04"></script>
+  <script src="/workspace.js?v=20260913-04"></script>
+  <script src="/task-creator.js?v=20260913-04"></script>
   </body>
 </html>
 

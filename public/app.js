@@ -30,6 +30,7 @@ let currentUser = null;
 
   document.addEventListener('DOMContentLoaded', () => {
     initWorkspaceUI();
+    initTaskCreator();
     initTimeSelectors();
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#logoutBtn').addEventListener('click', logout);
@@ -267,7 +268,7 @@ let currentUser = null;
     adminPollTimer = setInterval(async () => {
       if (!currentUser || currentUser.perfil !== 'Admin') return;
       if (!$('#adminView') || $('#adminView').classList.contains('hidden')) return;
-      if ($$('.modal').some((modal) => !modal.classList.contains('hidden'))) return;
+      if ($$('.modal').some((modal) => !modal.classList.contains('hidden')) || activeAdminTab === 'create' || taskCreatorSaving) return;
 
       try {
         await loadAdmin();
