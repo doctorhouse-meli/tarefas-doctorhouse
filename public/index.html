@@ -3,9 +3,11 @@
   <head>
     <base target="_top">
     <meta charset="UTF-8">
+    <title>Doctor House • Tarefas</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-01">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -18,7 +20,7 @@
 
       <section id="loginView" class="hidden min-h-screen items-center justify-center p-4">
         <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h1 class="text-2xl font-semibold">Dashboard de Tarefas</h1>
+          <img class="login-logo" src="/assets/doctor-house-logo.png" alt="Doctor House"><p class="eyebrow">SEU DIA, MAIS ORGANIZADO</p><h1 class="text-2xl font-semibold">Bem-vindo de volta</h1>
           <p class="mt-1 text-sm text-slate-500">Entre com seu e-mail corporativo.</p>
           <form id="loginForm" class="mt-6 space-y-4">
             <label class="block">
@@ -42,7 +44,7 @@
             <div class="brand-header">
               <img src="/assets/doctor-house-logo.png" alt="Doctor House" class="brand-logo">
               <div>
-                <h1 class="text-xl font-semibold">Gestao de Tarefas</h1>
+                <h1 class="text-xl font-semibold">Tarefas</h1>
                 <p id="userInfo" class="text-sm text-slate-500"></p>
               </div>
             </div>
@@ -53,13 +55,13 @@
         <div id="adminView" class="mx-auto hidden max-w-7xl p-4">
           <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 class="text-lg font-black text-slate-950">Painel admin</h2>
+              <h2 class="text-lg font-black text-slate-950">Gestão da equipe</h2>
               <p class="text-sm text-slate-500">Acompanhe prioridades, prazos, equipe e tarefas de todos os responsaveis.</p>
             </div>
             <button id="backToMyTasksBtn" type="button" class="btn-secondary">Minhas tarefas</button>
           </div>
 
-          <div class="grid gap-3 sm:grid-cols-4">
+          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="users">Pessoas e espaços</button></nav><div data-admin-panel="overview" class="grid gap-3 sm:grid-cols-4">
             <div class="stat-card stat-pending">
               <p class="text-sm text-slate-500">Pendentes</p>
               <p id="statPendente" class="mt-2 text-3xl font-semibold"></p>
@@ -78,7 +80,7 @@
             </div>
           </div>
 
-          <div class="mt-4 grid gap-3 lg:grid-cols-3">
+          <div data-admin-panel="overview" class="mt-4 grid gap-3 lg:grid-cols-3">
             <section class="panel-card">
               <div class="flex items-center justify-between">
                 <h2 class="font-black">Atrasadas</h2>
@@ -99,7 +101,7 @@
             </section>
           </div>
 
-          <div class="toolbar-panel mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div data-admin-panel="tasks" class="toolbar-panel mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div class="grid flex-1 gap-3 sm:grid-cols-3">
               <label>
                 <span class="text-sm font-medium">Responsavel</span>
@@ -123,11 +125,11 @@
               <button data-modal="taskModal" data-mode="create" class="btn-primary">Nova Tarefa</button>
               <button data-modal="templateModal" class="btn-secondary">Novo Modelo Diario</button>
               <button data-modal="userModal" data-mode="create" class="btn-secondary">Novo Usuario</button>
-              <button data-modal="workspaceModal" class="btn-secondary">Novo Workspace</button>
+
             </div>
           </div>
 
-          <div class="table-panel mt-4">
+          <div data-admin-panel="tasks" class="table-panel mt-4"><label class="admin-search search-field"><span aria-hidden="true">⌕</span><input id="adminSearch" type="search" placeholder="Buscar tarefas da equipe" aria-label="Buscar tarefas da equipe"></label>
             <div class="section-title">
               <div>
                 <h2>Tarefas</h2>
@@ -152,11 +154,11 @@
             </div>
           </div>
 
-          <div class="table-panel mt-4">
+          <div data-admin-panel="users" class="table-panel mt-4"><label class="admin-search search-field"><span aria-hidden="true">⌕</span><input id="userSearch" type="search" placeholder="Buscar pessoa, e-mail ou workspace" aria-label="Buscar usuários"></label>
             <div class="section-title">
               <div>
-                <h2>Usuarios</h2>
-                <p>Altere nome, login, senha, perfil e workspace.</p>
+                <h2>Pessoas e espaços</h2>
+                <p>Gerencie os acessos e a organização da equipe.</p><button data-modal="workspaceModal" class="text-button">＋ Novo workspace</button>
               </div>
               <button data-modal="userModal" data-mode="create" class="btn-primary">Novo Usuario</button>
             </div>
@@ -178,24 +180,25 @@
         </div>
 
         <div id="employeeView" class="employee-shell mx-auto hidden max-w-7xl p-4">
-          <div class="employee-hero mb-5">
-            <div>
-              <p class="text-sm font-semibold uppercase tracking-wide text-slate-400">Minhas atividades</p>
-              <h2 id="employeeGreeting" class="mt-1 text-2xl font-black text-white">Minhas tarefas</h2>
-              <p class="mt-1 text-sm text-slate-300">Priorize, avance e finalize com clareza.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <button data-modal="employeeTaskModal" class="hero-btn">Nova tarefa</button>
-              <button id="openRequestAdminBtn" type="button" class="hero-btn hidden">Pedir ao admin</button>
-              <button id="openEmployeeTemplatesBtn" class="hero-btn">Tarefas diarias</button>
-              <button id="openAdminControlBtn" type="button" class="hero-btn hidden">Painel admin</button>
-            </div>
-          </div>
 
-          <div id="employeeSummary" class="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5"></div>
-          <div id="employeeRequestsPanel" class="mb-5 hidden"></div>
-          <div id="employeeTaskFilters" class="hidden"></div>
-          <div id="employeeTasks" class="grid gap-3 xl:grid-cols-4"></div>
+          <aside class="workspace-sidebar" aria-label="Navegação das tarefas">
+            <button data-modal="employeeTaskModal" class="btn-primary new-task-btn"><span aria-hidden="true">＋</span> Nova tarefa</button>
+            <p class="nav-caption">MINHAS LISTAS</p>
+            <nav id="employeeSummary" aria-label="Filtrar tarefas"></nav>
+            <div id="employeeTaskFilters" class="hidden"></div>
+            <div class="sidebar-tools">
+              <button id="openEmployeeTemplatesBtn" class="sidebar-link">↻ <span>Tarefas diárias</span></button>
+              <button id="openRequestAdminBtn" type="button" class="sidebar-link hidden">↗ <span>Pedir ao admin</span></button>
+              <button id="openAdminControlBtn" type="button" class="sidebar-link hidden">▦ <span>Gestão da equipe</span></button>
+            </div>
+            <p class="sidebar-note">Um passo de cada vez.<br>Seu trabalho, em ordem.</p>
+          </aside>
+          <div class="workspace-main">
+            <div class="workspace-heading"><div><p class="eyebrow">ESPAÇO DE TRABALHO</p><h2 id="employeeGreeting">Minhas tarefas</h2><p>Mais clareza para cuidar do que importa.</p></div><span class="workspace-mark" aria-hidden="true">✓</span></div>
+            <div class="search-toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="taskSearch" type="search" placeholder="Buscar nas tarefas desta lista" aria-label="Buscar nas tarefas desta lista"></label><label class="sort-field"><span>Ordenar</span><select id="taskSort"><option value="date">Por prazo</option><option value="priority">Por prioridade</option><option value="title">Por título</option></select></label><button id="clearTaskFilters" class="text-button">Limpar filtros</button></div>
+            <div id="employeeRequestsPanel" class="mb-5 hidden"></div>
+            <div id="employeeTasks"></div>
+          </div>
         </div>
       </section>
     </main>
@@ -400,7 +403,7 @@
             <div id="checklistList" class="mt-3 space-y-2"></div>
             <form id="checklistForm" class="mt-3 flex gap-2">
               <input name="titulo" required placeholder="Novo item" class="input">
-              <button class="rounded-md bg-slate-900 px-3 py-2 text-sm text-white">Add</button>
+              <button class="rounded-md bg-slate-900 px-3 py-2 text-sm text-white">Adicionar</button>
             </form>
           </section>
           <section class="rounded-lg bg-slate-50 p-3">
@@ -473,7 +476,8 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/app.js?v=20260828-04"></script>
+    <script src="/app.js?v=20260913-01"></script>
+  <script src="/workspace.js?v=20260913-01"></script>
   </body>
 </html>
 

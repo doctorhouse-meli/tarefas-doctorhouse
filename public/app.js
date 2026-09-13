@@ -5,7 +5,7 @@ let currentUser = null;
   let titleAlertLabel = 'Nova tarefa!';
   let adminPollTimer = null;
   let employeePollTimer = null;
-  let employeeTaskFilter = 'pending';
+  let employeeTaskFilter = 'all';
   let employeePendingFilter = 'today';
   let currentEmployeeTasks = [];
   let currentEmployeeRequests = [];
@@ -29,6 +29,7 @@ let currentUser = null;
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
   document.addEventListener('DOMContentLoaded', () => {
+    initWorkspaceUI();
     initTimeSelectors();
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#logoutBtn').addEventListener('click', logout);
@@ -377,7 +378,7 @@ let currentUser = null;
       const matchesEmployee = !employee || task.atribuidoPara === employee;
       const matchesWorkspace = !workspace || task.workspace === workspace;
       const matchesStatus = !status || task.status === status;
-      return matchesEmployee && matchesWorkspace && matchesStatus;
+      return matchesEmployee && matchesWorkspace && matchesStatus && matchesTaskSearch(task, $('#adminSearch').value);
     });
 
     $('#adminTaskRows').innerHTML = tasks.map((task) => `
@@ -421,7 +422,7 @@ let currentUser = null;
   }
 
   function renderAdminUsers() {
-    const users = adminData.usuarios || [];
+    const users = (adminData.usuarios || []).filter(user => matchesTaskSearch({ titulo: user.nome, descricao: user.email, workspace: user.workspace }, $('#userSearch').value));
     $('#adminUserRows').innerHTML = users.map((user) => `
       <tr>
         <td class="px-4 py-3">
@@ -677,7 +678,8 @@ let currentUser = null;
 
   function formatTaskSchedule(task) {
     if (!task.dataPrazo) return 'Sem prazo';
-    return task.horarioPrazo ? `${task.dataPrazo} - ${task.horarioPrazo}` : task.dataPrazo;
+    const date = String(task.dataPrazo).slice(0,10).split('-').reverse().join('/');
+    return task.horarioPrazo ? date + ' às ' + task.horarioPrazo : date;
   }
 
   function toDateKey(date) {
@@ -688,41 +690,9 @@ let currentUser = null;
   }
 
   function renderEmployeeSummary(tasks) {
-    $('#employeeGreeting').textContent = `Ola, ${currentUser.nome}`;
-
-    const pending = getPendingTasks(tasks).length;
-    const doing = getDoingTasks(tasks).length;
-    const overdue = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue').length;
-    const next = tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'next').length;
-    const done = getDoneTasks(tasks).length;
-
-    $('#employeeSummary').innerHTML = `
-      <button type="button" class="employee-summary-card summary-today ${employeeTaskFilter === 'pending' ? 'is-active' : ''}" data-filter="pending">
-        <p>Pendentes</p>
-        <strong>${pending}</strong>
-        <span>aguardando execucao</span>
-      </button>
-      <button type="button" class="employee-summary-card summary-next ${employeeTaskFilter === 'doing' ? 'is-active' : ''}" data-filter="doing">
-        <p>Em andamento</p>
-        <strong>${doing}</strong>
-        <span>tarefas iniciadas</span>
-      </button>
-      <button type="button" class="employee-summary-card summary-overdue ${employeeTaskFilter === 'overdue' ? 'is-active' : ''}" data-filter="overdue">
-        <p>Atrasadas</p>
-        <strong>${overdue}</strong>
-        <span>pendentes vencidas</span>
-      </button>
-      <button type="button" class="employee-summary-card summary-next ${employeeTaskFilter === 'next' ? 'is-active' : ''}" data-filter="next">
-        <p>Proximos dias</p>
-        <strong>${next}</strong>
-        <span>agendadas para depois</span>
-      </button>
-      <button type="button" class="employee-summary-card summary-daily ${employeeTaskFilter === 'done' ? 'is-active' : ''}" data-filter="done">
-        <p>Concluidas</p>
-        <strong>${done}</strong>
-        <span>finalizadas</span>
-      </button>
-    `;
+    $('#employeeGreeting').textContent = 'Olá, ' + currentUser.nome.split(' ')[0];
+    const filters = [['all','Todas as tarefas','☰',getOpenTasks(tasks).length],['today','Hoje','◷',getTasksByDueKey(tasks,'today').length],['overdue','Atrasadas','!',getTasksByDueKey(tasks,'overdue').length],['pending','Pendentes','○',getPendingTasks(tasks).length],['doing','Em andamento','◐',getDoingTasks(tasks).length],['next','Próximos dias','▦',getTasksByDueKey(tasks,'next').length],['done','Concluídas','✓',getDoneTasks(tasks).length]];
+    $('#employeeSummary').innerHTML = filters.map(([key,label,icon,count]) => `<button type="button" class="employee-summary-card ${employeeTaskFilter === key ? 'is-active' : ''}" data-filter="${key}" aria-pressed="${employeeTaskFilter === key}"><span class="nav-icon" aria-hidden="true">${icon}</span><span class="nav-label">${label}</span><strong>${count}</strong></button>`).join('');
   }
 
   function renderEmployeeRequests(requests) {
@@ -806,12 +776,16 @@ let currentUser = null;
   }
 
   function applyEmployeeTaskFilter(tasks) {
-    if (employeeTaskFilter === 'done') return sortOldestFirst(getDoneTasks(tasks));
-    if (employeeTaskFilter === 'doing') return sortOldestFirst(getDoingTasks(tasks));
-    if (employeeTaskFilter === 'pending') return sortOldestFirst(getPendingTasksByPendingFilter(tasks));
-    if (employeeTaskFilter === 'overdue') return sortOldestFirst(tasks.filter((task) => task.status !== 'Concluida' && getTaskDueKey(task) === 'overdue'));
-    if (employeeTaskFilter === 'next') return sortOldestFirst(getTasksByDueKey(tasks, 'next'));
-    return sortEmployeeTasks(getDefaultEmployeeVisibleTasks(tasks));
+    let result;
+    if (employeeTaskFilter === 'done') result = getDoneTasks(tasks);
+    else if (employeeTaskFilter === 'doing') result = getDoingTasks(tasks);
+    else if (employeeTaskFilter === 'pending') result = getPendingTasks(tasks);
+    else if (['today','overdue','next'].includes(employeeTaskFilter)) result = getTasksByDueKey(tasks, employeeTaskFilter);
+    else result = getOpenTasks(tasks);
+    result = result.filter(task => matchesTaskSearch(task, taskSearch));
+    if (taskSort === 'title') return [...result].sort((a,b) => a.titulo.localeCompare(b.titulo, 'pt-BR'));
+    if (taskSort === 'priority') { const weight = { Urgente:0, Alta:1, Media:2, Baixa:3 }; return [...result].sort((a,b) => (weight[a.prioridade] ?? 2) - (weight[b.prioridade] ?? 2) || getScheduleSortValue(a)-getScheduleSortValue(b)); }
+    return sortEmployeeTasks(result);
   }
 
   function getTasksByPendingFilter(tasks, filterKey) {
@@ -829,6 +803,8 @@ let currentUser = null;
 
   function renderEmployeeTasks(tasks) {
     const titles = {
+      all: 'Minhas tarefas',
+      today: 'Hoje',
       pending: 'Tarefas pendentes',
       doing: 'Tarefas em andamento',
       overdue: 'Tarefas atrasadas',
@@ -844,9 +820,9 @@ let currentUser = null;
             <p>${tasks.length} tarefa${tasks.length === 1 ? '' : 's'} encontrada${tasks.length === 1 ? '' : 's'}</p>
           </div>
         </div>
-        ${employeeTaskFilter === 'pending' ? renderPendingSubfilters() : ''}
+
         <div class="employee-list-table">
-          ${tasks.map(renderEmployeeTaskCard).join('') || '<p class="rounded-md bg-slate-50 p-4 text-sm font-medium text-slate-500">Nenhuma tarefa nesta visualizacao.</p>'}
+          ${renderTaskGroups(tasks)}
         </div>
       </section>
     `;
@@ -898,35 +874,15 @@ let currentUser = null;
   }
 
   function renderEmployeeTaskCard(task) {
-    const dueKey = getTaskDueKey(task);
-    const statusClass = task.status === 'Concluida'
-      ? 'is-done'
-      : task.status === 'Em Andamento'
-        ? 'is-progress'
-        : 'is-pending';
-    return `
-      <article class="employee-task-row is-${dueKey} ${statusClass}">
-        <div class="min-w-0">
-          <div class="flex min-w-0 flex-wrap items-center gap-2">
-            <button class="taskDetailsBtn employee-task-title text-left text-sm font-black leading-tight text-slate-900 hover:text-sky-700" data-task-id="${escapeHtml(task.id)}">${escapeHtml(task.titulo)}</button>
-            ${priorityBadge(task.prioridade)}
-            ${statusBadge(task.status)}
-          </div>
-          <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold text-slate-500">
-            <span>${escapeHtml(formatDueLabel(task))}</span>
-            <span class="text-slate-300">|</span>
-            <span>${escapeHtml(task.workspace || '')}</span>
-            <span class="text-slate-300">|</span>
-            <span>${escapeHtml(task.tipo || 'Manual')}</span>
-          </div>
-          ${task.descricao ? `<div class="employee-task-description">${escapeHtml(task.descricao)}</div>` : ''}
-        </div>
-        <div class="employee-row-actions">
-          ${renderEmployeeActionButtons(task)}
-          <button class="taskDetailsBtn employee-action-btn is-details" data-task-id="${escapeHtml(task.id)}">Detalhes</button>
-        </div>
-      </article>
-    `;
+    const done = task.status === 'Concluida';
+    const id = escapeHtml(task.id);
+    return `<article class="employee-task-row ${done ? 'is-done' : ''}">
+      <button class="statusBtn task-check ${done ? 'checked' : ''}" data-task-id="${id}" data-status="${done ? 'Pendente' : 'Concluida'}" aria-label="${done ? 'Reabrir' : 'Concluir'}: ${escapeHtml(task.titulo)}" title="${done ? 'Reabrir tarefa' : 'Concluir tarefa'}">${done ? '✓' : ''}</button>
+      <div class="task-row-content"><button class="taskDetailsBtn employee-task-title" data-task-id="${id}">${escapeHtml(task.titulo)}</button>
+      ${task.descricao ? `<div class="employee-task-description">${taskDescriptionHtml(task.descricao)}</div>` : ''}
+      <div class="task-meta"><span class="due-chip ${!done ? getTaskDueKey(task) : ''}">◷ ${escapeHtml(formatDueLabel(task))}</span>${priorityBadge(task.prioridade)}${task.status === 'Em Andamento' ? statusBadge(task.status) : ''}<span>${escapeHtml(task.workspace || '')}</span>${task.tipo === 'Diaria' ? '<span>↻ Diária</span>' : ''}</div></div>
+      <details class="task-menu"><summary aria-label="Ações: ${escapeHtml(task.titulo)}" title="Mais ações">⋮</summary><div class="task-menu-popover">${renderEmployeeActionButtons(task)}<button class="taskDetailsBtn employee-action-btn" data-task-id="${id}">Ver detalhes</button></div></details>
+    </article>`;
   }
 
   function renderEmployeeActionButtons(task) {
@@ -980,12 +936,9 @@ let currentUser = null;
 
   function formatDueLabel(task) {
     if (!task.dataPrazo) return 'Sem prazo';
-    const dueKey = getTaskDueKey(task);
-    const schedule = formatTaskSchedule(task);
-    if (task.status === 'Concluida') return `Prazo: ${schedule}`;
-    if (dueKey === 'today') return `Hoje: ${schedule}`;
-    if (dueKey === 'overdue') return `Vencida: ${schedule}`;
-    return `Prazo: ${schedule}`;
+    if (task.status === 'Concluida') return formatTaskSchedule(task);
+    if (getTaskDueKey(task) === 'today') return 'Hoje' + (task.horarioPrazo ? ' às ' + task.horarioPrazo : '');
+    return (getTaskDueKey(task) === 'overdue' ? 'Atrasada · ' : '') + formatTaskSchedule(task);
   }
 
   function getStatusWeight(status) {
@@ -1155,8 +1108,7 @@ let currentUser = null;
     event.target.reset();
     closeModals();
     showToast('Tarefa criada.');
-    employeeTaskFilter = 'pending';
-    employeePendingFilter = 'today';
+    employeeTaskFilter = 'all'; taskSearch = ''; $('#taskSearch').value = '';
     await loadEmployee(false);
   }
 
@@ -1166,8 +1118,7 @@ let currentUser = null;
     event.target.reset();
     closeModals();
     showToast('Pedido enviado ao admin.');
-    employeeTaskFilter = 'pending';
-    employeePendingFilter = 'today';
+    employeeTaskFilter = 'all'; taskSearch = ''; $('#taskSearch').value = '';
     await loadEmployee(false);
   }
 
@@ -1273,11 +1224,18 @@ let currentUser = null;
   }
 
   function openModal(id) {
-    $('#' + id).classList.remove('hidden');
+    const existing = $$('.modal').some(modal => !modal.classList.contains('hidden'));
+    if (!existing) modalReturnFocus = document.activeElement;
+    $$('.modal').forEach(modal => modal.classList.add('hidden'));
+    const modal = $('#' + id); modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    requestAnimationFrame(() => modal.querySelector('input:not([type=hidden]), textarea, select, button')?.focus());
   }
 
   function closeModals() {
-    $$('.modal').forEach((modal) => modal.classList.add('hidden'));
+    $$('.modal').forEach(modal => modal.classList.add('hidden'));
+    document.body.classList.remove('modal-open');
+    if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
   }
 
   function showToast(message) {
@@ -1325,6 +1283,7 @@ let currentUser = null;
     stopEmployeePolling();
     employeePollTimer = setInterval(async () => {
       if (!currentUser || $('#employeeView').classList.contains('hidden')) return;
+      if ($$('.modal').some(modal => !modal.classList.contains('hidden')) || $('.task-menu[open]')) return;
       try {
         await loadEmployee(false);
       } catch (error) {
