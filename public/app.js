@@ -1561,12 +1561,13 @@ let currentUser = null;
   }
 
   function showBrowserNotification(task) {
-    if (typeof pwaPushActive !== 'undefined' && pwaPushActive) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const options = {
       body: `${task.titulo} - Prazo: ${formatTaskSchedule(task)}`,
-      tag: task.id,
+      tag: `task-${task.id}`,
+      data: { url: '/?task=' + encodeURIComponent(task.id) },
     };
+    if (typeof pwaNotify === 'function') { void pwaNotify('Nova tarefa recebida',options); return; }
     if (typeof pwaRegistration !== 'undefined' && pwaRegistration) pwaRegistration.showNotification('Nova tarefa recebida',options).catch(()=>{});
     else { try { new Notification('Nova tarefa recebida',options); } catch {} }
   }

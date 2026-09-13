@@ -58,3 +58,28 @@ test('installed session validates its token, removes expired tokens and keeps tr
   status=503;assert.equal(await context.pwaRestoreSession(),false);assert.equal(saved.size,1);assert.equal(context.currentUser,null);
   status=401;assert.equal(await context.pwaRestoreSession(),false);assert.equal(saved.size,0);assert.equal(context.authToken,'');
 });
+
+test('new task still requests a system notification with push enabled',()=>{
+  const calls=[];
+  const context=vm.createContext({pwaPushActive:true,Notification:{permission:'granted'},window:{Notification:{}},
+    formatTaskSchedule:()=> 'Hoje',pwaNotify:(...args)=>calls.push(args)});
+  const source=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
+  vm.runInContext(source.slice(source.indexOf('  function showBrowserNotification('),source.indexOf('  function showBrowserStatusNotification(')),context);
+  context.showBrowserNotification({id:'TSK-123',titulo:'Teste'});
+  assert.equal(calls.length,1);
+  assert.equal(calls[0][1].tag,'task-TSK-123');
+  assert.equal(calls[0][1].data.url,'/?task=TSK-123');
+});
+
+test('foreground fallback uses the worker and avoids a second alert when push is already displayed',async()=>{
+  let shown=[],existing=[];
+  const registration={getNotifications:async({tag})=>existing.filter(n=>n.tag===tag),showNotification:async(...args)=>shown.push(args)};
+  const context=vm.createContext({URL,location:{href:'https://tasks.example/'},navigator:{serviceWorker:{getRegistration:async()=>registration}},
+    document:{addEventListener(){},querySelector:()=>({})}});
+  vm.runInContext(readFileSync(new URL('../public/pwa.js',import.meta.url),'utf8'),context);
+  await context.pwaNotify('Nova tarefa recebida',{tag:'task-1'});
+  assert.equal(shown.length,1);assert.equal(shown[0][1].renotify,false);
+  existing=[{tag:'task-2'}];
+  await context.pwaNotify('Nova tarefa recebida',{tag:'task-2'});
+  assert.equal(shown.length,1);
+});

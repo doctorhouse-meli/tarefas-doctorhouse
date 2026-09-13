@@ -34,6 +34,8 @@ test('PostgreSQL: migração, chaves persistentes, eventos, isolamento, retries 
     await service.dispatch();
     assert.equal(sent.length,1);assert.equal(sent[0].sub.endpoint,a.endpoint);assert.equal(sent[0].payload.url,'/?task=task');
     assert.equal(sent[0].options.vapidDetails.publicKey,first);
+    assert.equal(sent[0].options.urgency,'high');
+    assert.equal(sent[0].payload.tag,'task-task');
     await service.dispatch();assert.equal(sent.length,1);
     await query("UPDATE tarefas SET atribuido_para='b@test' WHERE id='task'");
     await service.dispatch();assert.equal(sent.at(-1).sub.endpoint,b.endpoint);

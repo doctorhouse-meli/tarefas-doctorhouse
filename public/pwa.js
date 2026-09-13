@@ -76,6 +76,23 @@ async function pwaOpenTask() {
   await openTaskDetails(task);
 }
 
+// Polling remains a fallback even when this device is subscribed to push.
+// The same tag as the server replaces a pending alert instead of alerting twice.
+async function pwaNotify(title, options) {
+  try {
+    const registration = pwaRegistration || await navigator.serviceWorker?.getRegistration();
+    if(registration) {
+      const shown = await registration.getNotifications({tag:options.tag});
+      if(shown.length) return;
+      await registration.showNotification(title,{...options,renotify:false,icon:'/assets/icon-192.png'});
+    } else if('Notification' in window) {
+      new Notification(title,options);
+    }
+  } catch {
+    document.querySelector('#pwaStatus').textContent='Não foi possível mostrar o aviso do sistema. Confira as permissões de notificação deste aparelho.';
+  }
+}
+
 document.addEventListener('DOMContentLoaded',()=>{
   const status=document.querySelector('#pwaStatus');
   const help=document.querySelector('#pwaInstallHelp');

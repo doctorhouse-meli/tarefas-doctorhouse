@@ -1056,6 +1056,9 @@ export function createApp() {
       const args = req.body.args || [];
       authorizeRpc(req.params.functionName, args, req);
       const result = await fn(...args);
+      if (['createTask','createEmployeeTask','createAdminRequest','updateTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
+        void pushService.dispatch().catch(() => console.error('Falha ao despachar notificações; a fila será reprocessada.'));
+      }
       res.json({ ok: true, result });
     } catch (error) {
       res.status(400).json({ ok: false, error: error.message || 'Erro no servidor.' });
@@ -1087,7 +1090,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     backgroundBusy = true;
     try {
       await init();
-      if (Date.now() - lastGeneration > 60000) { await generateDailyTasks(); lastGeneration = Date.now(); }
+      if (Date.now() - lastGeneration > 60000) {
+        lastGeneration = Date.now();
+        try { await generateDailyTasks(); }
+        catch { console.error('Falha na geração diária; o envio de notificações continuará.'); }
+      }
       await pushService.dispatch();
     } catch { console.error('Falha temporária no serviço de notificações; nova tentativa em 15 segundos.'); }
     finally { backgroundBusy = false; }

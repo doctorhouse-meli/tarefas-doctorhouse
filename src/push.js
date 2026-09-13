@@ -96,11 +96,12 @@ export function createPushService(query, transport = webpush) {
           if (target.rowCount) {
             const subscription=validateSubscription(target.rows[0].subscription);
             await transport.sendNotification(subscription,JSON.stringify({title:event.title,body:'Abra o Doctor House para conferir.',url:event.task_id ? '/?task='+encodeURIComponent(event.task_id) : '/',tag:'task-'+(event.task_id || event.id)}),{
-              vapidDetails:{subject:'mailto:contato@doctorhouse.com.br',...vapid},TTL:86400,timeout:6000,urgency:'normal'
+              vapidDetails:{subject:'mailto:contato@doctorhouse.com.br',...vapid},TTL:86400,timeout:6000,urgency:'high'
             });
           }
           await query('DELETE FROM push_outbox WHERE id=$1',[event.id]);
         } catch(error) {
+          console.error('Push delivery failed', {status:error.statusCode || 'network',attempt:event.attempts});
           if ([404,410].includes(error.statusCode)) await query('DELETE FROM push_subscriptions WHERE endpoint=$1',[event.endpoint]);
           // Other failures retain the leased event for a bounded retry.
         }
