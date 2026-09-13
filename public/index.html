@@ -14,9 +14,9 @@
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-18">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-18">
-    <link rel="stylesheet" href="/mobile.css?v=20260913-18">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-19">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-19">
+    <link rel="stylesheet" href="/mobile.css?v=20260913-19">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
@@ -256,7 +256,6 @@
             <div id="employeeTaskFilters" class="hidden"></div>
             <div class="sidebar-tools">
               <button id="openEmployeeTemplatesBtn" class="sidebar-link">↻ <span>Tarefas diárias</span></button>
-              <button id="openRequestAdminBtn" type="button" class="sidebar-link hidden">↗ <span>Criar tarefa para alguém</span></button>
               <button id="openAdminControlBtn" type="button" class="sidebar-link hidden">▦ <span>Gestão da equipe</span></button>
             </div>
             <p class="sidebar-note">Um passo de cada vez.<br>Seu trabalho, em ordem.</p>
@@ -264,8 +263,8 @@
           <div class="workspace-main">
             <div class="workspace-heading"><div><p class="eyebrow">ESPAÇO DE TRABALHO</p><h2 id="employeeGreeting">Minhas tarefas</h2><p>Mais clareza para cuidar do que importa.</p></div><button type="button" id="testEmployeeSound" class="btn-secondary">Testar som</button></div>
             <div class="search-toolbar"><label class="search-field"><span aria-hidden="true">⌕</span><input id="taskSearch" type="search" placeholder="Buscar nas tarefas desta lista" aria-label="Buscar nas tarefas desta lista"></label><span class="order-note">Em andamento primeiro · Prazo mais antigo</span><button id="clearTaskFilters" class="text-button">Limpar filtros</button></div>
-            <div id="employeeRequestsPanel" class="mb-5 hidden"></div>
             <div id="employeeTasks"></div>
+            <div id="employeeRequestsPanel" class="mt-5 hidden"></div>
           </div>
         </div>
       </section>
@@ -397,8 +396,13 @@
 
     <div id="employeeTaskModal" class="modal hidden">
       <form id="employeeTaskForm" class="modal-panel">
-        <h2 id="employeeTaskTitle" class="text-lg font-semibold">Nova Tarefa Avulsa</h2>
-        <p id="employeeTaskHint" class="mt-1 text-sm text-slate-500">Esta tarefa sera criada para voce.</p>
+        <h2 id="employeeTaskTitle" class="text-lg font-semibold">Nova tarefa</h2>
+        <p id="employeeTaskHint" class="mt-1 text-sm text-slate-500">Esta tarefa será criada para você.</p>
+        <div id="employeeRecipientField" class="mt-4 hidden">
+          <label class="field-label">Para quem é esta tarefa?
+            <select id="employeeRecipient" name="recipientId" class="input" disabled><option value="">Para mim</option></select>
+          </label>
+        </div>
         <input name="id" type="hidden">
         <div class="mt-4 grid gap-3">
           <input name="titulo" required placeholder="Titulo" class="input">
@@ -475,7 +479,6 @@
             <p id="detailsSender" class="task-sender"></p>
             <p id="detailsDescription" class="mt-2 text-sm text-slate-600"></p>
           </div>
-          <button id="requestFromDetailsBtn" type="button" class="employee-action-btn is-request hidden">Criar tarefa para alguém</button>
         </div>
         <div class="mt-4 grid gap-4 lg:grid-cols-3">
           <section class="rounded-lg bg-slate-50 p-3">
@@ -503,32 +506,6 @@
           <button type="button" class="closeModal rounded-md border px-3 py-2">Fechar</button>
         </div>
       </div>
-    </div>
-
-    <div id="requestAdminModal" class="modal hidden">
-      <form id="requestAdminForm" class="modal-panel">
-        <h2 class="text-lg font-semibold">Criar tarefa para alguém</h2>
-        <p class="mt-1 text-sm text-slate-500">Escolha uma pessoa liberada no seu cadastro. Ela receberá uma tarefa normal.</p>
-        <div class="mt-4 grid gap-3">
-          <label class="field-label">Responsável<select name="recipientId" required class="input"></select></label>
-          <input name="titulo" required placeholder="Título da tarefa" class="input">
-          <textarea name="descricao" placeholder="Descrição da tarefa" class="input"></textarea>
-          <select name="prioridade" required class="input">
-            <option>Baixa</option><option selected>Media</option><option>Alta</option><option>Urgente</option>
-          </select>
-          <input name="dataPrazo" required type="date" class="input">
-          <div class="time-select" data-time-field="horarioPrazo">
-            <input name="horarioPrazo" type="hidden">
-            <select class="input" data-time-hour aria-label="Hora opcional"></select>
-            <select class="input" data-time-minute aria-label="Minuto opcional"></select>
-          </div>
-        </div>
-        <div class="mt-5 flex justify-end gap-2">
-          <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
-          <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-white">Criar tarefa</button>
-        </div>
-        <p id="assignmentError" class="hidden mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert"></p>
-      </form>
     </div>
 
     <div id="completeTaskModal" class="modal hidden">
@@ -579,12 +556,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-18"></script>
-    <script src="/admin-recurrences.js?v=20260913-18"></script>
-    <script src="/notification-sounds.js?v=20260913-18"></script>
-    <script src="/app.js?v=20260913-18"></script>
-  <script src="/workspace.js?v=20260913-18"></script>
-  <script src="/task-creator.js?v=20260913-18"></script>
+    <script src="/pwa.js?v=20260913-19"></script>
+    <script src="/admin-recurrences.js?v=20260913-19"></script>
+    <script src="/notification-sounds.js?v=20260913-19"></script>
+    <script src="/app.js?v=20260913-19"></script>
+  <script src="/workspace.js?v=20260913-19"></script>
+  <script src="/task-creator.js?v=20260913-19"></script>
   </body>
 </html>
 
