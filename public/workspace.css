@@ -365,3 +365,23 @@ table td { font-size:15px; }
 .sound-actions { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:12px; margin-top:20px; }
 #soundSettingsStatus { margin-top:16px; color:var(--accent); }
 @media(max-width:700px) { .sound-options,.sound-controls { grid-template-columns:1fr; } .sound-settings { padding:18px; } }
+.recurrence-overview,.recurrences-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:22px 0; }
+.recurrence-overview h2 { font-size:20px; }
+.recurrence-overview p,.recurrences-heading p,.recurrence-help,.recurrence-count { color:var(--muted); line-height:1.6; }
+.recurrences-heading h2 { font-size:30px; font-weight:650; margin-bottom:6px; }
+.recurrence-toolbar { display:flex; align-items:center; gap:14px; margin:24px 0 14px; }
+.recurrence-toolbar .search-field { flex:1; }
+.recurrence-toolbar select { width:260px; }
+.recurrence-count { margin-bottom:14px; }
+.recurrence-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.recurrence-card { background:white; border:1px solid var(--line); border-radius:18px; padding:24px; overflow-wrap:anywhere; }
+.recurrence-card-heading { display:flex; align-items:start; gap:14px; justify-content:space-between; }
+.recurrence-card h3 { font-size:20px; font-weight:650; }
+.recurrence-description { white-space:pre-wrap; color:var(--muted); margin-top:12px; line-height:1.6; }
+.recurrence-schedule { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0; }
+.recurrence-schedule span { color:#3855ce; background:#edf1ff; padding:8px 12px; border-radius:10px; font-size:14px; }
+.recurrence-card dl { display:grid; grid-template-columns:2fr 1fr; gap:14px; border-top:1px solid var(--line); padding-top:16px; }
+.recurrence-card dt,.recurrence-email { color:var(--muted); font-size:13px; }
+.recurrence-card dd { margin-top:4px; }
+.recurrence-empty { grid-column:1/-1; padding:36px; background:white; border:1px dashed var(--line); border-radius:16px; color:var(--muted); text-align:center; }
+@media(max-width:750px) { .recurrence-list { grid-template-columns:1fr; } .recurrences-heading,.recurrence-toolbar { align-items:stretch; flex-direction:column; } .recurrence-toolbar select { width:100%; } .recurrence-overview { flex-wrap:wrap; } }

@@ -5,6 +5,10 @@ function initTaskCreator() {
   document.querySelectorAll('[data-open-task-creator]').forEach(button => button.addEventListener('click', () => {
     if (activeAdminTab !== 'create') creatorReturnTab = activeAdminTab;
     populateTaskCreator();
+    if (button.dataset.repeatDefault) {
+      document.querySelector('#creatorRepeat').value = button.dataset.repeatDefault;
+      updateCreatorRecurrence();
+    }
     setAdminTab('create');
     document.querySelector('#creatorTitle').focus();
   }));
@@ -94,7 +98,11 @@ async function submitTaskCreator(event) {
   }
   form.reset(); updateCreatorRecurrence();
   taskCreatorSaving = false; button.disabled = false;
-  setAdminTab('tasks');
+  setAdminTab(mode === 'none' ? 'tasks' : 'recurrences');
+  if (mode !== 'none') {
+    document.querySelector('#recurrenceSearch').value = '';
+    document.querySelector('#recurrenceEmployee').value = '';
+  }
   document.querySelector('#filterEmployee').value = data.atribuidoPara;
   document.querySelector('#filterWorkspace').value = data.workspace;
   document.querySelector('#filterStatus').value = 'Pendente';

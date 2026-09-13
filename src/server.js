@@ -589,10 +589,11 @@ export async function getMyAdminRequests(userEmail) {
 
 export async function getAdminDashboardData() {
   await generateDailyTasks();
-  const [tasksResult, usersResult, workspaces] = await Promise.all([
+  const [tasksResult, usersResult, workspaces, templatesResult] = await Promise.all([
     query('SELECT * FROM tarefas ORDER BY data_prazo ASC, horario_prazo ASC NULLS LAST, data_criacao ASC'),
     query('SELECT * FROM usuarios ORDER BY nome'),
     getWorkspaces(),
+    query('SELECT * FROM templates_diarios ORDER BY titulo, id'),
   ]);
   const tasks = tasksResult.rows.map(formatTask);
   const users = usersResult.rows.map(sanitizeUser);
@@ -602,6 +603,7 @@ export async function getAdminDashboardData() {
     usuarios: users,
     colaboradores,
     workspaces,
+    recurringTemplates: templatesResult.rows.map(formatTemplate),
     todayPanel: buildAdminTodayPanel(tasks, colaboradores),
     stats: {
       pendentes: tasks.filter((task) => task.status === 'Pendente').length,

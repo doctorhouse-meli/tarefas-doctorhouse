@@ -34,6 +34,7 @@ let currentUser = null;
     initWorkspaceUI();
     initTaskCreator();
     initNotificationSounds();
+    initAdminRecurrences();
     initTimeSelectors();
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#logoutBtn').addEventListener('click', logout);
@@ -260,6 +261,7 @@ let currentUser = null;
     }
     renderAdminTasks();
     renderAdminUsers();
+    renderAdminRecurrences();
   }
 
   function isAdminRefreshBlocked() {

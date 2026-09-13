@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-07">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-08">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <main id="app" class="min-h-screen">
@@ -61,8 +61,15 @@
             <div class="flex flex-wrap gap-2"><button id="backToMyTasksBtn" type="button" class="btn-secondary">Minhas tarefas</button><button type="button" data-open-task-creator class="btn-primary">＋ Criar tarefa</button></div>
           </div>
 
-          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="users">Pessoas e espaços</button><button data-admin-tab="sounds">Sons dos avisos</button></nav>
-          <section data-admin-panel="sounds" class="panel-card sound-settings hidden" aria-labelledby="soundSettingsTitle">
+          <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="recurrences">Tarefas com repetição</button><button data-admin-tab="users">Pessoas e espaços</button><button data-admin-tab="sounds">Sons dos avisos</button></nav>
+          <section data-admin-panel="overview" class="recurrence-overview panel-card"><div><h2>Tarefas com repetição</h2><p id="recurrenceTotal">Carregando programações…</p></div><button type="button" data-admin-tab="recurrences" class="btn-secondary">Ver repetições</button></section>
+<section data-admin-panel="recurrences" class="recurrences-page hidden" aria-labelledby="recurrenceHeading">
+<div class="recurrences-heading"><div><h2 id="recurrenceHeading">Tarefas com repetição</h2><p>Todas as programações da equipe, incluindo as tarefas diárias já cadastradas.</p></div><button type="button" class="btn-primary" data-open-task-creator data-repeat-default="weekdays">＋ Criar tarefa com repetição</button></div>
+<p class="recurrence-help">Aqui você vê as programações que geram novas tarefas nos dias escolhidos. As tarefas geradas aparecem em “Tarefas da equipe”, com seus próprios prazos e status.</p>
+<div class="recurrence-toolbar"><label class="search-field"><input id="recurrenceSearch" type="search" placeholder="Buscar título, descrição ou responsável" aria-label="Buscar tarefas com repetição"></label><select id="recurrenceEmployee" class="input" aria-label="Filtrar repetições por responsável"><option value="">Todos os responsáveis</option></select><button id="clearRecurrenceFilters" type="button" class="text-button">Limpar filtros</button></div>
+<p id="recurrenceCount" class="recurrence-count" role="status"></p><div id="recurrenceList" class="recurrence-list"></div>
+</section>
+<section data-admin-panel="sounds" class="panel-card sound-settings hidden" aria-labelledby="soundSettingsTitle">
 <h2 id="soundSettingsTitle">Sons dos avisos</h2>
 <p>Escolha o aviso de novas tarefas para toda a equipe. Ouça as opções antes de salvar.</p>
 <form id="soundSettingsForm">
@@ -512,10 +519,11 @@
     </div>
 
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/notification-sounds.js?v=20260913-07"></script>
-    <script src="/app.js?v=20260913-07"></script>
-  <script src="/workspace.js?v=20260913-07"></script>
-  <script src="/task-creator.js?v=20260913-07"></script>
+    <script src="/admin-recurrences.js?v=20260913-08"></script>
+    <script src="/notification-sounds.js?v=20260913-08"></script>
+    <script src="/app.js?v=20260913-08"></script>
+  <script src="/workspace.js?v=20260913-08"></script>
+  <script src="/task-creator.js?v=20260913-08"></script>
   </body>
 </html>
 
