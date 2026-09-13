@@ -6,21 +6,8 @@ const NOTIFICATION_SOUNDS = [
   ['alert-1', 'Alerta duplo', 'Dois bipes nítidos para chamar atenção.'],
   ['alert-3', 'Alerta forte', 'Dois bipes mais agudos e presentes.'],
   ['alert-5', 'Alerta intenso', 'O tom mais agudo desta seleção.'],
-  ['meme-faaah', 'FAAAH', 'Grito curto de reação. Meme em alta no Brasil.'],
-  ['meme-aura', 'Você não tem aura', 'Frase de reação que aparece entre os destaques.'],
-  ['meme-pix', 'E o Pix? Nada ainda?', 'Uma cobrança bem-humorada para chamar atenção.'],
-  ['meme-magnata', 'Bom dia, magnata', 'Saudação descontraída para a equipe.'],
-  ['meme-bruh', 'Bruh', 'Reação curta, clássica dos memes.'],
   ['none', 'Sem som', 'Mantém os avisos visuais.']
 ];
-const MEME_SOUND_URLS = {
-  'meme-faaah': 'https://www.myinstants.com/media/sounds/faaah.mp3',
-  'meme-aura': 'https://www.myinstants.com/media/sounds/voce-nao-tem-aura.mp3',
-  'meme-pix': 'https://www.myinstants.com/media/sounds/e-o-pix-nada-ainda.mp3',
-  'meme-magnata': 'https://www.myinstants.com/media/sounds/bom-dia-magnata.mp3',
-  'meme-bruh': 'https://www.myinstants.com/media/sounds/movie_1.mp3'
-};
-let activeMemeAudio = null;
 let notificationSettings = { sound: 'original', volume: 70, repeat: 1 };
 let soundSettingsDirty = false;
 let soundSettingsSaving = false;
@@ -37,12 +24,6 @@ function trackNotificationNode(node) {
 
 function stopNotificationSound() {
   soundPlaybackToken++;
-  if (activeMemeAudio) {
-    activeMemeAudio.pause();
-    activeMemeAudio.onended = null;
-    activeMemeAudio.onerror = null;
-    activeMemeAudio = null;
-  }
   for (const node of notificationNodes) { try { node.stop(); } catch {} }
   notificationNodes.clear();
 }
@@ -149,26 +130,7 @@ async function playNotificationSound(settings = notificationSettings, preview = 
     if (!audioContext) throw Error('Este navegador não suporta áudio.');
     if (audioContext.state === 'suspended') await audioContext.resume();
     if (token !== soundPlaybackToken) return false;
-    if (MEME_SOUND_URLS[settings.sound]) {
-      const audio = new Audio(MEME_SOUND_URLS[settings.sound]);
-      activeMemeAudio = audio;
-      audio.volume = settings.volume / 100;
-      let remaining = settings.repeat;
-      const failed = () => {
-        if (token !== soundPlaybackToken) return;
-        stopNotificationSound();
-        if (preview) document.querySelector('#soundSettingsStatus').textContent = 'Áudio online indisponível. Verifique a conexão ou escolha um dos sons locais.';
-        else if (audioContext?.state === 'running') playLegacyNotificationSound(settings.volume);
-      };
-      audio.onerror = failed;
-      audio.onended = () => {
-        if (token !== soundPlaybackToken) return;
-        if (--remaining > 0) { audio.currentTime = 0; audio.play().catch(failed); }
-        else { audio.onended = null; audio.onerror = null; activeMemeAudio = null; }
-      };
-      await audio.play();
-      if (token !== soundPlaybackToken) return false;
-    } else if (settings.sound === 'original') {
+    if (settings.sound === 'original') {
       for (let i = 0; i < settings.repeat; i++) playLegacyNotificationSound(settings.volume, i * 1.05);
     } else {
       const buffer = await getNotificationBuffer(settings.sound);
@@ -187,7 +149,6 @@ async function playNotificationSound(settings = notificationSettings, preview = 
     return true;
   } catch (error) {
     if (token !== soundPlaybackToken) return false;
-    stopNotificationSound();
     if (preview) document.querySelector('#soundSettingsStatus').textContent = 'Não foi possível ouvir este som. Clique em Ouvir para tentar novamente.';
     else if (audioContext?.state === 'running') playLegacyNotificationSound(settings.volume);
     return false;

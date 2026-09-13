@@ -905,7 +905,10 @@ export async function getTaskHistory(taskId) {
 
 export async function getNotificationSettings() {
   const result = await query('SELECT value FROM app_settings WHERE key = $1', ['notification_sound']);
-  return result.rows[0]?.value || { ...DEFAULT_NOTIFICATION_SETTINGS };
+  const settings = result.rows[0]?.value || { ...DEFAULT_NOTIFICATION_SETTINGS };
+  // Retired sounds must also disappear from previously saved team preferences.
+  if (String(settings.sound).startsWith('meme-')) return { ...settings, sound: 'original' };
+  return settings;
 }
 
 export async function saveNotificationSettings(data) {
