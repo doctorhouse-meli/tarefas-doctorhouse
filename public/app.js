@@ -3,6 +3,7 @@ let currentUser = null;
   let adminData = { tasks: [], usuarios: [], colaboradores: [], workspaces: [], stats: {} };
   let selectedTask = null;
   let taskSavePending = false;
+  let ownTaskSavePending = false;
   let titleAlertLabel = 'Nova tarefa!';
   let adminPollTimer = null;
   let employeePollTimer = null;
@@ -79,6 +80,7 @@ let currentUser = null;
       button.addEventListener('click', () => {
         if (button.dataset.modal === 'taskModal' && button.dataset.mode === 'create') resetTaskForm();
         if (button.dataset.modal === 'userModal' && button.dataset.mode === 'create') resetUserForm();
+        if (button.dataset.modal === 'employeeTaskModal') resetOwnTaskForm();
         closeModals();
         openModal(button.dataset.modal);
       });
@@ -915,6 +917,7 @@ let currentUser = null;
     $$('.taskDetailsBtn').forEach((button) => {
       button.addEventListener('click', () => openTaskDetails(tasks.find((task) => task.id === button.dataset.taskId)));
     });
+    $$('.editOwnTaskBtn').forEach(button => button.addEventListener('click', () => openOwnTaskEditor(button.dataset.taskId)));
     $$('.statusBtn').forEach((button) => {
       button.addEventListener('click', () => {
         if (button.dataset.status === 'Concluida') {
@@ -966,7 +969,7 @@ let currentUser = null;
       <div class="task-row-content"><button class="taskDetailsBtn employee-task-title" data-task-id="${id}">${escapeHtml(task.titulo)}</button>
       ${task.descricao ? `<div class="employee-task-description">${taskDescriptionHtml(task.descricao)}</div>` : ''}
       <div class="task-meta"><span class="due-chip ${!done ? getTaskDueKey(task) : ''}">◷ ${escapeHtml(formatDueLabel(task))}</span>${priorityBadge(task.prioridade)}${task.status === 'Em Andamento' ? statusBadge(task.status) : ''}<span>${escapeHtml(task.workspace || '')}</span>${task.tipo === 'Diaria' ? '<span>↻ Diária</span>' : ''}</div></div>
-      <details class="task-menu"><summary aria-label="Ações: ${escapeHtml(task.titulo)}" title="Mais ações">⋮</summary><div class="task-menu-popover">${renderEmployeeActionButtons(task)}<button class="taskDetailsBtn employee-action-btn" data-task-id="${id}">Ver detalhes</button></div></details>
+      <details class="task-menu"><summary aria-label="Ações: ${escapeHtml(task.titulo)}" title="Mais ações">⋮</summary><div class="task-menu-popover">${canEditOwnTask(task) ? `<button class="editOwnTaskBtn employee-action-btn" data-task-id="${id}">Editar tarefa</button>` : ''}${renderEmployeeActionButtons(task)}<button class="taskDetailsBtn employee-action-btn" data-task-id="${id}">Ver detalhes</button></div></details>
     </article>`;
   }
 
@@ -1187,13 +1190,52 @@ let currentUser = null;
     await loadEmployee(false);
   }
 
+  function canEditOwnTask(task) {
+    const email = String(currentUser?.email || '').trim().toLowerCase();
+    return !!email && task?.criadoPor === email && task?.atribuidoPara === email;
+  }
+
+  function resetOwnTaskForm() {
+    $('#employeeTaskForm').reset();
+    $('#employeeTaskForm').elements.id.value = '';
+    setTimeField($('#employeeTaskForm'), 'horarioPrazo', '');
+    $('#employeeTaskTitle').textContent = 'Nova Tarefa Avulsa';
+    $('#employeeTaskHint').textContent = 'Esta tarefa será criada para você.';
+    $('#employeeTaskEditFields').hidden = true;
+    $('#employeeTaskError').classList.add('hidden');
+  }
+
+  function openOwnTaskEditor(taskId) {
+    const task = currentEmployeeTasks.find(item => item.id === taskId);
+    if (!canEditOwnTask(task)) return;
+    resetOwnTaskForm();
+    const form = $('#employeeTaskForm');
+    for (const key of ['id','titulo','descricao','prioridade','dataPrazo','status','obsConclusao']) form.elements[key].value = task[key] || '';
+    setTimeField(form, 'horarioPrazo', task.horarioPrazo || '');
+    $('#employeeTaskTitle').textContent = 'Editar minha tarefa';
+    $('#employeeTaskHint').textContent = task.tipo === 'Diaria' ? 'As alterações valem somente para esta tarefa, sem mudar a programação das próximas.' : 'Você pode editar os dados desta tarefa porque foi criada por você.';
+    $('#employeeTaskEditFields').hidden = false;
+    closeModals(); openModal('employeeTaskModal');
+  }
+
   async function handleCreateEmployeeTask(event) {
     event.preventDefault();
-    await callServer('createEmployeeTask', formToObject(event.target), currentUser.email);
-    event.target.reset();
+    if (ownTaskSavePending) return;
+    const form = event.target, data = formToObject(form), errorBox = $('#employeeTaskError');
+    const button = form.querySelector('button[type="submit"]');
+    errorBox.classList.add('hidden');
+    ownTaskSavePending = true; button.disabled = true; button.textContent = 'Salvando…';
+    try {
+      if (data.id) await callServer('updateOwnTask', data.id, data, currentUser.email);
+      else await callServer('createEmployeeTask', data, currentUser.email);
+    } catch(error) {
+      errorBox.textContent = error.message || 'Não foi possível salvar. Seus dados continuam no formulário.';
+      errorBox.classList.remove('hidden'); return;
+    } finally { ownTaskSavePending = false; button.disabled = false; button.textContent = 'Salvar'; }
+    form.reset();
     closeModals();
-    showToast('Tarefa criada.');
-    employeeTaskFilter = 'all'; taskSearch = ''; $('#taskSearch').value = '';
+    showToast(data.id ? 'Tarefa atualizada.' : 'Tarefa criada.');
+    employeeTaskFilter = data.id && data.status === 'Concluida' ? 'done' : 'all'; taskSearch = ''; $('#taskSearch').value = '';
     await loadEmployee(false);
   }
 
@@ -1318,7 +1360,7 @@ let currentUser = null;
   }
 
   function closeModals() {
-    if (taskSavePending || (typeof recurrenceSaving !== 'undefined' && recurrenceSaving)) return;
+    if (taskSavePending || ownTaskSavePending || (typeof recurrenceSaving !== 'undefined' && recurrenceSaving)) return;
     $$('.modal').forEach(modal => modal.classList.add('hidden'));
     document.body.classList.remove('modal-open');
     if (modalReturnFocus?.isConnected) modalReturnFocus.focus();

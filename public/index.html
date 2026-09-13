@@ -14,9 +14,9 @@
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-14">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-14">
-    <link rel="stylesheet" href="/mobile.css?v=20260913-14">
+  <link rel="stylesheet" href="/workspace.css?v=20260913-15">
+    <link rel="stylesheet" href="/pwa.css?v=20260913-15">
+    <link rel="stylesheet" href="/mobile.css?v=20260913-15">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
@@ -397,8 +397,9 @@
 
     <div id="employeeTaskModal" class="modal hidden">
       <form id="employeeTaskForm" class="modal-panel">
-        <h2 class="text-lg font-semibold">Nova Tarefa Avulsa</h2>
-        <p class="mt-1 text-sm text-slate-500">Esta tarefa sera criada para voce.</p>
+        <h2 id="employeeTaskTitle" class="text-lg font-semibold">Nova Tarefa Avulsa</h2>
+        <p id="employeeTaskHint" class="mt-1 text-sm text-slate-500">Esta tarefa sera criada para voce.</p>
+        <input name="id" type="hidden">
         <div class="mt-4 grid gap-3">
           <input name="titulo" required placeholder="Titulo" class="input">
           <textarea name="descricao" placeholder="Descricao" class="input"></textarea>
@@ -412,9 +413,14 @@
             <select class="input" data-time-minute aria-label="Minuto opcional"></select>
           </div>
         </div>
+        <div id="employeeTaskEditFields" class="mt-4 grid gap-3" hidden>
+          <label class="field-label">Status<select name="status" class="input"><option>Pendente</option><option>Em Andamento</option><option>Concluida</option></select></label>
+          <label class="field-label">Observação de conclusão<textarea name="obsConclusao" class="input" placeholder="Usada quando a tarefa estiver concluída"></textarea></label>
+        </div>
+        <p id="employeeTaskError" class="hidden mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert"></p>
         <div class="mt-5 flex justify-end gap-2">
           <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
-          <button class="rounded-md bg-slate-900 px-3 py-2 text-white">Salvar</button>
+          <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-white">Salvar</button>
         </div>
       </form>
     </div>
@@ -567,12 +573,12 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-14"></script>
-    <script src="/admin-recurrences.js?v=20260913-14"></script>
-    <script src="/notification-sounds.js?v=20260913-14"></script>
-    <script src="/app.js?v=20260913-14"></script>
-  <script src="/workspace.js?v=20260913-14"></script>
-  <script src="/task-creator.js?v=20260913-14"></script>
+    <script src="/pwa.js?v=20260913-15"></script>
+    <script src="/admin-recurrences.js?v=20260913-15"></script>
+    <script src="/notification-sounds.js?v=20260913-15"></script>
+    <script src="/app.js?v=20260913-15"></script>
+  <script src="/workspace.js?v=20260913-15"></script>
+  <script src="/task-creator.js?v=20260913-15"></script>
   </body>
 </html>
 

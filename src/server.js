@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { initDb, makeId, pool, query } from './db.js';
 import { DEFAULT_NOTIFICATION_SETTINGS, validateNotificationSettings } from './notification-settings.js';
 import { initPush, createPushService } from './push.js';
+import { initTaskOwnership } from './task-ownership.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -23,6 +24,7 @@ export async function init() {
   }
   initializationPromise = (async () => {
     await initDb();
+    await initTaskOwnership(query);
     await initPush(query);
     initialized = true;
   })().catch(error => { initializationPromise = null; throw error; });
@@ -182,6 +184,7 @@ function formatTask(row) {
     horarioPrazo: toTimeKey(row.horario_prazo),
     status: row.status,
     atribuidoPara: row.atribuido_para,
+    criadoPor: row.criado_por || '',
     solicitadoPor: row.solicitado_por || '',
     tarefaOrigemId: row.tarefa_origem_id || '',
     tipo: row.tipo,
@@ -203,6 +206,7 @@ function formatTemplate(row) {
     descricao: row.descricao || '',
     prioridade: row.prioridade,
     atribuidoPara: row.atribuido_para,
+    criadoPor: row.criado_por || '',
     horarioPrazo: toTimeKey(row.horario_prazo),
     diasSemana: row.dias_semana || '1,2,3,4,5',
     diasSemanaLabel: weekdaysLabel(row.dias_semana || '1,2,3,4,5'),
@@ -357,6 +361,8 @@ export async function updateUser(userId, userData) {
     if (oldEmail !== newEmail) {
       await client.query('UPDATE tarefas SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
       await client.query('UPDATE templates_diarios SET atribuido_para = $2 WHERE atribuido_para = $1', [oldEmail, newEmail]);
+      await client.query('UPDATE tarefas SET criado_por = $2 WHERE criado_por = $1', [oldEmail, newEmail]);
+      await client.query('UPDATE templates_diarios SET criado_por = $2 WHERE criado_por = $1', [oldEmail, newEmail]);
       await client.query('UPDATE comentarios SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
       await client.query('UPDATE historico SET autor_email = $2 WHERE autor_email = $1', [oldEmail, newEmail]);
     }
@@ -415,8 +421,8 @@ export async function createTask(taskData) {
   const status = taskData.status || 'Pendente';
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, solicitado_por, tarefa_origem_id, tipo, data_conclusao)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, $10, $11, 'Manual', $12)
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, solicitado_por, tarefa_origem_id, tipo, data_conclusao, criado_por)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9, $10, $11, 'Manual', $12, $13)
      RETURNING *`,
     [
       makeId('TSK'),
@@ -431,6 +437,7 @@ export async function createTask(taskData) {
       taskData.solicitadoPor ? normalizeEmail(taskData.solicitadoPor) : null,
       taskData.tarefaOrigemId || null,
       status === 'Concluida' ? new Date() : null,
+      taskData.autorEmail ? normalizeEmail(taskData.autorEmail) : null,
     ],
   );
   await addHistory(result.rows[0].id, taskData.autorEmail || 'sistema', 'Criou tarefa', taskData.titulo);
@@ -547,6 +554,22 @@ export async function updateTask(taskId, taskData) {
   return formatTask(result.rows[0]);
 }
 
+export async function updateOwnTask(taskId, data, userEmail) {
+  requireFields(data, ['titulo', 'prioridade', 'dataPrazo', 'status']);
+  if (!['Baixa','Media','Alta','Urgente'].includes(data.prioridade)) throw Error('Prioridade inválida.');
+  if (!['Pendente','Em Andamento','Concluida'].includes(data.status)) throw Error('Status inválido.');
+  const result = await query(`UPDATE tarefas SET titulo=$3, descricao=$4, prioridade=$5,
+      data_prazo=$6::date, horario_prazo=$7::time, status=$8,
+      data_conclusao=CASE WHEN $8='Concluida' THEN COALESCE(data_conclusao,NOW()) ELSE NULL END,
+      obs_conclusao=CASE WHEN $8='Concluida' THEN $9 ELSE '' END
+    WHERE id=$1 AND criado_por=$2 AND atribuido_para=$2 RETURNING *`,
+    [taskId, normalizeEmail(userEmail), String(data.titulo).trim(), String(data.descricao || ''),
+      data.prioridade, data.dataPrazo, normalizeTime(data.horarioPrazo), data.status, String(data.obsConclusao || '').trim()]);
+  if (!result.rowCount) throw Error('Você só pode editar tarefas criadas por você para você.');
+  await addHistory(taskId, normalizeEmail(userEmail), 'Editou tarefa', String(data.titulo).trim());
+  return formatTask(result.rows[0]);
+}
+
 export async function deleteTask(taskId) {
   const current = await query('SELECT * FROM tarefas WHERE id = $1', [taskId]);
   if (!current.rowCount) throw new Error('Tarefa nao encontrada.');
@@ -649,8 +672,8 @@ export async function createDailyTemplate(templateData) {
   if (!assignedUser) throw new Error('Responsavel nao encontrado.');
   const result = await query(
     `INSERT INTO templates_diarios
-      (id, workspace, titulo, descricao, prioridade, atribuido_para, horario_prazo, dias_semana)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8)
+      (id, workspace, titulo, descricao, prioridade, atribuido_para, horario_prazo, dias_semana, criado_por)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8, $9)
      RETURNING *`,
     [
       makeId('TPL'),
@@ -661,6 +684,7 @@ export async function createDailyTemplate(templateData) {
       normalizeEmail(templateData.atribuidoPara),
       normalizeTime(templateData.horarioPrazo),
       normalizeWeekdays(templateData.diasSemana),
+      templateData.autorEmail ? normalizeEmail(templateData.autorEmail) : null,
     ],
   );
   return formatTemplate(result.rows[0]);
@@ -704,6 +728,7 @@ export async function createEmployeeDailyTemplate(templateData, userEmail) {
     ...templateData,
     workspace: user.workspace,
     atribuidoPara: user.email,
+    autorEmail: user.email,
   });
   if (String(templateData.criarHoje || '').toLowerCase() === 'true') {
     await createTaskFromTemplate(template, todayKey());
@@ -752,8 +777,8 @@ async function createTaskFromTemplate(template, dateKey) {
 
   const result = await query(
     `INSERT INTO tarefas
-      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, origem_template_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria', $9)
+      (id, workspace, titulo, descricao, prioridade, data_prazo, horario_prazo, status, atribuido_para, tipo, origem_template_id, criado_por)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::time, 'Pendente', $8, 'Diaria', $9, $10)
      RETURNING *`,
     [
       makeId('TSK'),
@@ -765,6 +790,7 @@ async function createTaskFromTemplate(template, dateKey) {
       normalizeTime(template.horarioPrazo),
       normalizeEmail(template.atribuidoPara),
       template.id,
+      template.criadoPor || null,
     ],
   );
   await registerDailyGeneration(template.id, dateKey, result.rows[0].id, false);
@@ -947,6 +973,7 @@ const rpc = {
   getRequestAdmins,
   createAdminRequest,
   updateTask,
+  updateOwnTask,
   deleteTask,
   registerUser,
   updateUser,
@@ -997,6 +1024,7 @@ const emailArgIndex = {
   createEmployeeTask: 1,
   deleteEmployeeDailyTemplate: 1,
   updateTaskStatus: 2,
+  updateOwnTask: 2,
   addComment: 2,
   addChecklistItem: 2,
   updateChecklistItem: 2,
@@ -1020,6 +1048,11 @@ function authorizeRpc(functionName, args, req) {
   if (functionName === 'deleteUser' && normalizeEmail(args[1]) !== normalizeEmail(user.email)) {
     throw new Error('Solicitante invalido.');
   }
+  // Creation ownership always comes from the signed session, never the form.
+  if (['createTask','createDailyTemplate'].includes(functionName)) args[0] = {...args[0],autorEmail:user.email};
+  if (functionName === 'updateTask') args[1] = {...args[1],autorEmail:user.email};
+  if (['createEmployeeTask','createEmployeeDailyTemplate'].includes(functionName)) args[1] = user.email;
+  if (functionName === 'updateOwnTask') args[2] = user.email;
 }
 
 export function createApp() {
@@ -1056,7 +1089,7 @@ export function createApp() {
       const args = req.body.args || [];
       authorizeRpc(req.params.functionName, args, req);
       const result = await fn(...args);
-      if (['createTask','createEmployeeTask','createAdminRequest','updateTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
+      if (['createTask','createEmployeeTask','createAdminRequest','updateTask','updateOwnTask','updateTaskStatus','generateDailyTasks','createDailyTemplate','createEmployeeDailyTemplate'].includes(req.params.functionName)) {
         void pushService.dispatch().catch(() => console.error('Falha ao despachar notificações; a fila será reprocessada.'));
       }
       res.json({ ok: true, result });

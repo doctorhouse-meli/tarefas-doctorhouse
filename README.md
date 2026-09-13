@@ -26,6 +26,12 @@ Criação e atribuição de tarefas notificam o responsável; mudanças de statu
 
 O servidor verifica a fila a cada 15 segundos e as repetições a cada minuto. Mantenha ao menos uma instância web ativa: um serviço suspenso não processa a fila até voltar a executar. Bloqueios do PostgreSQL coordenam múltiplas instâncias; endpoints expirados são removidos e falhas temporárias recebem até cinco tentativas. A entrega final depende do provedor push e do aparelho.
 
+## Edição de tarefas próprias
+
+O menu da tarefa oferece **Editar tarefa** quando a conta autenticada é tanto a criadora quanto a responsável atual. O formulário permite alterar título, descrição, prioridade, data, horário, status e observação de conclusão. Responsável, espaço e autoria são preservados pelo servidor. As permissões administrativas existentes continuam disponíveis na gestão da equipe.
+
+A autoria de tarefas e de novas programações fica em `criado_por`, preenchida a partir da sessão autenticada. Nas tarefas antigas, a migração aproveita o primeiro registro “Criou tarefa” do histórico. Quando não existe evidência da autoria (incluindo programações antigas), a edição pessoal permanece bloqueada; não se presume que o responsável seja o criador. Nas tarefas diárias com autoria identificada, editar uma ocorrência não altera a programação futura.
+
 ## Validação
 
 `pnpm test` inclui as regressões do painel, testes de gatilhos e fila em PostgreSQL via PGlite, autorização por proprietário da inscrição e testes do service worker. O recebimento real no iPhone deve ser conferido no próprio aparelho após instalar e permitir os avisos.
