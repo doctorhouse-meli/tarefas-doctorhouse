@@ -1051,7 +1051,11 @@ export function createApp() {
       if (req.method === 'GET' && req.path === '/key') return res.json({publicKey:await pushService.publicKey()});
       if (req.method === 'POST' && req.path === '/subscription') return res.json(await pushService.subscribe(user.email,req.body));
       if (req.method === 'DELETE' && req.path === '/subscription') return res.json(await pushService.unsubscribe(user.email,req.body.endpoint));
-      if (req.method === 'POST' && req.path === '/test') return res.json(await pushService.test(user.email,req.body.endpoint));
+      if (req.method === 'POST' && req.path === '/test') {
+        const result = await pushService.test(user.email,req.body.endpoint);
+        void pushService.dispatch().catch(() => console.error('Falha ao despachar teste de notificação.'));
+        return res.json(result);
+      }
       res.status(404).json({error:'Recurso não encontrado.'});
     } catch(error) { res.status(/Sessao|Sessão/.test(error.message) ? 401 : 400).json({error:error.message}); }
   });
@@ -1132,9 +1136,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         catch { console.error('Falha na geração diária; o envio de notificações continuará.'); }
       }
       await pushService.dispatch();
-    } catch { console.error('Falha temporária no serviço de notificações; nova tentativa em 15 segundos.'); }
+    } catch { console.error('Falha temporária no serviço de notificações; nova tentativa em 5 segundos.'); }
     finally { backgroundBusy = false; }
   };
-  setInterval(tick,15000).unref();
+  setInterval(tick,5000).unref();
   void tick();
 }

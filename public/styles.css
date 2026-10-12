@@ -848,3 +848,25 @@
     }
 
   }
+
+/* Management overview: full-width cards on phones, three stable columns on desktop. */
+.management-heading {display:flex;justify-content:space-between;align-items:end;gap:20px;margin-bottom:20px}
+.management-heading h2 {font-size:21px;font-weight:800;color:#18243e}
+.management-heading p,.management-column>p {font-size:13px;color:#67768e;margin-top:4px}
+.management-heading label {display:grid;gap:6px;font-size:12px;font-weight:700;min-width:220px}
+.management-columns {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start}
+.management-column {min-width:0;background:#fff;border:1px solid #dfe5ef;border-radius:16px;padding:18px;border-top:4px solid #e8ac3e}
+.management-overdue {border-top-color:#e46c75}.management-completed {border-top-color:#2aab84}
+.management-column header {display:flex;justify-content:space-between;align-items:center;gap:8px}
+.management-column h3 {font-size:16px;font-weight:800;color:#18243e}
+.management-column header>span {background:#f0f3f9;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:800}
+.management-list {display:grid;gap:12px;margin-top:18px;max-height:650px;overflow-y:auto;overscroll-behavior:contain;padding:2px}
+.management-task {display:grid;gap:7px;text-align:left;width:100%;min-width:0;padding:15px;border:1px solid #e2e7f0;border-radius:12px;background:#fff;overflow-wrap:anywhere;color:#26344c}
+.management-task:hover {border-color:#8599ee;background:#f9faff}.management-task:focus-visible {outline:3px solid #5266e8;outline-offset:1px}
+.management-task strong {font-size:14px;line-height:1.5}.management-person {font-size:13px;font-weight:700}.management-date {font-size:12px;color:#67768e}
+.management-task-footer {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:5px;font-size:11px;color:#5064c7}
+.management-task.latest-completion {background:#edfaf4;border-color:#86cdb0}.latest-label {font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:#187456}
+.management-empty {padding:20px 6px;color:#778397;font-size:13px}
+@media(max-width:1000px) {.management-columns{grid-template-columns:1fr}.management-list{max-height:440px}.management-heading{align-items:stretch;flex-direction:column}.management-heading label{min-width:0}.management-column{padding:16px}}
+
+@media(max-width:640px){.management-stats .stat-card{padding:12px 16px}.management-stats .stat-card p:last-child{margin-top:2px;font-size:24px}}

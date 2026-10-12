@@ -15,7 +15,7 @@ test('aceita provedores push, bloqueia destinos internos e inscrições malforma
 test('PostgreSQL: migração, chaves persistentes, eventos, isolamento, retries e remoção',async()=>{
   const db=new PGlite();
   try {
-    await db.exec(`CREATE TABLE usuarios(email TEXT PRIMARY KEY,perfil TEXT);CREATE TABLE tarefas(id TEXT PRIMARY KEY,atribuido_para TEXT,solicitado_por TEXT,status TEXT,obs_conclusao TEXT);
+    await db.exec(`CREATE TABLE usuarios(email TEXT PRIMARY KEY,perfil TEXT);CREATE TABLE tarefas(id TEXT PRIMARY KEY,atribuido_para TEXT,solicitado_por TEXT,status TEXT,obs_conclusao TEXT,titulo TEXT DEFAULT 'Conferir anúncios');
       INSERT INTO usuarios VALUES('a@test','Colaborador'),('b@test','Colaborador'),('admin@test','Admin');`);
     const query=async(sql,args)=>{
       if(!args && sql.includes('CREATE TABLE')) {await db.exec(sql);return {rows:[],rowCount:0};}
@@ -30,18 +30,19 @@ test('PostgreSQL: migração, chaves persistentes, eventos, isolamento, retries 
     const service=createPushService(query,{sendNotification:async(sub,payload,options)=>{if(failure)throw failure;sent.push({sub,payload:JSON.parse(payload),options});}});
     const a=sample('a'),b=sample('b'),admin=sample('admin');
     await service.subscribe('a@test',a);await service.subscribe('b@test',b);await service.subscribe('admin@test',admin);
-    await query("INSERT INTO tarefas VALUES('task','a@test',NULL,'Pendente','')");
+    await query("INSERT INTO tarefas(id,atribuido_para,solicitado_por,status,obs_conclusao) VALUES('task','a@test',NULL,'Pendente','')");
     await service.dispatch();
     assert.equal(sent.length,1);assert.equal(sent[0].sub.endpoint,a.endpoint);assert.equal(sent[0].payload.url,'/?task=task');
     assert.equal(sent[0].options.vapidDetails.publicKey,first);
     assert.equal(sent[0].options.urgency,'high');
     assert.equal(sent[0].payload.tag,'task-task');
+    assert.equal(sent[0].payload.body,'Conferir anúncios');
     await service.dispatch();assert.equal(sent.length,1);
     await query("UPDATE tarefas SET atribuido_para='b@test' WHERE id='task'");
     await service.dispatch();assert.equal(sent.at(-1).sub.endpoint,b.endpoint);
     await query("UPDATE tarefas SET obs_conclusao='Finalizado' WHERE id='task'");
     await service.dispatch();assert.equal(sent.at(-1).sub.endpoint,admin.endpoint);
-    await query("INSERT INTO tarefas VALUES('request','admin@test','a@test','Pendente','')");
+    await query("INSERT INTO tarefas(id,atribuido_para,solicitado_por,status,obs_conclusao) VALUES('request','admin@test','a@test','Pendente','')");
     await service.dispatch();
     await query("UPDATE tarefas SET status='Em Andamento' WHERE id='request'");
     await service.dispatch();assert.equal(sent.at(-1).sub.endpoint,a.endpoint);
@@ -55,6 +56,14 @@ test('PostgreSQL: migração, chaves persistentes, eventos, isolamento, retries 
     assert.equal((await query('SELECT * FROM push_outbox')).rowCount,0);
     await service.test('b@test',b.endpoint);await service.subscribe('a@test',b);
     assert.equal((await query('SELECT * FROM push_outbox')).rowCount,0);
+    // A burst larger than one batch is delivered in a single dispatch.
+    const before = sent.length;
+    failure = null;
+    for(let i=0;i<45;i++) await query("INSERT INTO tarefas(id,atribuido_para,titulo) VALUES($1,'a@test',$2)",['burst-'+i,'Tarefa '+i]);
+    await service.dispatch();
+    assert.equal(sent.length-before,45);
+    assert.equal((await query('SELECT * FROM push_outbox')).rowCount,0);
+    assert.ok(sent.slice(before).every(event=>event.payload.body.startsWith('Tarefa ')));
     await service.unsubscribe('a@test',b.endpoint);
     assert.equal((await query('SELECT * FROM push_subscriptions WHERE endpoint=$1',[b.endpoint])).rowCount,0);
   } finally {await db.close();}

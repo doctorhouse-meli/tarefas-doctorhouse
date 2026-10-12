@@ -13,10 +13,10 @@
     <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
     <link rel="icon" type="image/png" href="/assets/icon-192.png">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/styles.css?v=20260828-04">
-  <link rel="stylesheet" href="/workspace.css?v=20260913-25">
-    <link rel="stylesheet" href="/pwa.css?v=20260913-25">
-    <link rel="stylesheet" href="/mobile.css?v=20260913-25">
+    <link rel="stylesheet" href="/styles.css?v=20261011-1">
+  <link rel="stylesheet" href="/workspace.css?v=20261011-1">
+    <link rel="stylesheet" href="/pwa.css?v=20261011-1">
+    <link rel="stylesheet" href="/mobile.css?v=20261011-1">
   </head>
   <body class="app-body bg-slate-100 text-slate-900">
     <div id="connectionNotice" role="status" hidden>Sem conexão. Suas alterações ainda não foram enviadas. Reconecte-se antes de salvar.</div>
@@ -87,7 +87,7 @@
           </div>
 
           <nav class="admin-tabs" aria-label="Seções administrativas"><button data-admin-tab="overview">Visão geral</button><button data-admin-tab="tasks">Tarefas da equipe</button><button data-admin-tab="recurrences">Tarefas com repetição</button><button data-admin-tab="users">Pessoas e espaços</button><button data-admin-tab="sounds">Sons dos avisos</button></nav>
-          <section data-admin-panel="overview" class="recurrence-overview panel-card"><div><h2>Tarefas com repetição</h2><p id="recurrenceTotal">Carregando programações…</p></div><button type="button" data-admin-tab="recurrences" class="btn-secondary">Ver repetições</button></section>
+
 <section data-admin-panel="recurrences" class="recurrences-page hidden" aria-labelledby="recurrenceHeading">
 <div class="recurrences-heading"><div><h2 id="recurrenceHeading">Tarefas com repetição</h2><p>Todas as programações da equipe, incluindo as tarefas diárias já cadastradas.</p></div><button type="button" class="btn-primary" data-open-task-creator data-repeat-default="weekdays">＋ Criar tarefa com repetição</button></div>
 <p class="recurrence-help">Aqui você vê as programações que geram novas tarefas nos dias escolhidos. As tarefas geradas aparecem em “Tarefas da equipe”, com seus próprios prazos e status.</p>
@@ -129,7 +129,7 @@
               <div class="creator-footer"><p id="creatorError" class="creator-error hidden" role="alert"></p><span>Os campos com * são obrigatórios.</span><div><button id="creatorCancel" type="button" class="btn-secondary">Voltar</button><button id="creatorSubmit" class="btn-primary" type="submit">Criar tarefa</button></div></div>
             </form>
           </section>
-<div data-admin-panel="overview" class="grid gap-3 sm:grid-cols-4">
+<div data-admin-panel="overview" class="management-stats grid gap-3 sm:grid-cols-4">
             <div class="stat-card stat-pending">
               <p class="text-sm text-slate-500">Pendentes</p>
               <p id="statPendente" class="mt-2 text-3xl font-semibold"></p>
@@ -148,26 +148,16 @@
             </div>
           </div>
 
-          <div data-admin-panel="overview" class="mt-4 grid gap-3 lg:grid-cols-3">
-            <section class="panel-card">
-              <div class="flex items-center justify-between">
-                <h2 class="font-black">Atrasadas</h2>
-                <span id="adminTodayOverdueCount" class="rounded-full bg-red-50 px-2 py-1 text-xs font-black text-red-700"></span>
-              </div>
-              <div id="adminTodayOverdue" class="mt-3 space-y-2"></div>
-            </section>
-            <section class="panel-card">
-              <div class="flex items-center justify-between">
-                <h2 class="font-black">Hoje</h2>
-                <span id="adminTodayDueCount" class="rounded-full bg-sky-50 px-2 py-1 text-xs font-black text-sky-700"></span>
-              </div>
-              <div id="adminTodayDue" class="mt-3 space-y-2"></div>
-            </section>
-            <section class="panel-card">
-              <h2 class="font-black">Por responsavel</h2>
-              <div id="adminTodayEmployees" class="mt-3 space-y-2"></div>
-            </section>
-          </div>
+          <section data-admin-panel="overview" class="management-overview mt-4">
+            <div class="management-heading"><div><h2>Acompanhar a equipe</h2><p>Prazos em atenção e as entregas mais recentes.</p></div><label>Responsável<select id="overviewEmployee" class="input"><option value="">Toda a equipe</option></select></label></div>
+            <div class="management-columns">
+              <section class="management-column management-overdue"><header><h3>Atrasadas</h3><span id="adminTodayOverdueCount"></span></header><p>Precisam de atenção primeiro</p><div id="adminTodayOverdue" class="management-list"></div></section>
+              <section class="management-column management-pending"><header><h3>Pendentes</h3><span id="adminTodayDueCount"></span></header><p>A fazer e em andamento, dentro do prazo</p><div id="adminTodayDue" class="management-list"></div></section>
+              <section class="management-column management-completed"><header><h3>Últimas concluídas</h3><span id="adminCompletedCount"></span></header><p>Da conclusão mais recente para a mais antiga</p><div id="adminCompletedTasks" class="management-list"></div></section>
+            </div>
+          </section>
+
+          <section data-admin-panel="overview" class="recurrence-overview panel-card"><div><h2>Tarefas com repetição</h2><p id="recurrenceTotal">Carregando programações…</p></div><button type="button" data-admin-tab="recurrences" class="btn-secondary">Ver repetições</button></section>
 
           <div data-admin-panel="tasks" class="toolbar-panel mt-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div class="grid flex-1 gap-3 sm:grid-cols-3">
@@ -546,12 +536,13 @@
       </form>
     </div>
     <div id="toast" class="fixed bottom-4 right-4 hidden rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-lg"></div>
-    <script src="/pwa.js?v=20260913-25"></script>
-    <script src="/admin-recurrences.js?v=20260913-25"></script>
-    <script src="/notification-sounds.js?v=20260913-25"></script>
-    <script src="/app.js?v=20260913-25"></script>
-  <script src="/workspace.js?v=20260913-25"></script>
-  <script src="/task-creator.js?v=20260913-25"></script>
+    <script src="/pwa.js?v=20261011-1"></script>
+    <script src="/admin-recurrences.js?v=20261011-1"></script>
+    <script src="/notification-sounds.js?v=20261011-1"></script>
+    <script src="/admin-overview.js?v=20261011-1"></script>
+    <script src="/app.js?v=20261011-1"></script>
+  <script src="/workspace.js?v=20261011-1"></script>
+  <script src="/task-creator.js?v=20261011-1"></script>
   </body>
 </html>
 

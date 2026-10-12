@@ -42,6 +42,7 @@ let currentUser = null;
     initTimeSelectors();
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#logoutBtn').addEventListener('click', logout);
+    $('#overviewEmployee').addEventListener('change', renderAdminTodayPanel);
     $('#filterEmployee').addEventListener('change', renderAdminTasks);
     $('#filterWorkspace').addEventListener('change', renderAdminTasks);
     $('#filterStatus').addEventListener('change', renderAdminTasks);
@@ -335,32 +336,38 @@ let currentUser = null;
   }
 
   function renderAdminTodayPanel() {
-    const panel = adminData.todayPanel || { atrasadas: [], hoje: [], porColaborador: [] };
-    $('#adminTodayOverdueCount').textContent = panel.atrasadas.length;
-    $('#adminTodayDueCount').textContent = panel.hoje.length;
-
-    $('#adminTodayOverdue').innerHTML = panel.atrasadas.slice(0, 8).map(renderAdminTodayTask).join('') ||
-      '<p class="text-sm text-slate-400">Nada atrasado.</p>';
-    $('#adminTodayDue').innerHTML = panel.hoje.slice(0, 8).map(renderAdminTodayTask).join('') ||
-      '<p class="text-sm text-slate-400">Nada para hoje.</p>';
-    $('#adminTodayEmployees').innerHTML = panel.porColaborador.map((item) => `
-      <div class="rounded-md border border-slate-200 p-2">
-        <div class="flex items-center justify-between gap-2">
-          <p class="truncate text-sm font-black">${escapeHtml(item.nome)}</p>
-          <span class="text-xs font-bold text-slate-500">${item.total}</span>
-        </div>
-        <p class="mt-1 text-xs text-slate-500">Hoje: ${item.hoje} | Atrasadas: ${item.atrasadas} | Andamento: ${item.andamento}</p>
-      </div>
-    `).join('') || '<p class="text-sm text-slate-400">Sem responsaveis.</p>';
+    const select = $('#overviewEmployee');
+    const selected = select.value;
+    select.innerHTML = '<option value="">Toda a equipe</option>' + (adminData.usuarios || []).map(user => '<option value="'+escapeHtml(user.email)+'">'+escapeHtml(user.nome || user.email)+'</option>').join('');
+    setSelectValueIfExists(select, selected);
+    const panel = buildManagementOverview(adminData.tasks || [], select.value);
+    $('#statPendente').textContent = panel.pendingCount;
+    $('#statAndamento').textContent = panel.progressCount;
+    $('#statConcluida').textContent = panel.completed.length;
+    $('#statTotal').textContent = panel.total;
+    for (const [listId, countId, tasks, empty] of [
+      ['adminTodayOverdue','adminTodayOverdueCount',panel.overdue,'Nenhuma tarefa atrasada.'],
+      ['adminTodayDue','adminTodayDueCount',panel.pending,'Nenhuma pendência dentro do prazo.'],
+      ['adminCompletedTasks','adminCompletedCount',panel.completed,'Ainda não há tarefas concluídas.']
+    ]) {
+      $('#'+countId).textContent = tasks.length;
+      const list = $('#'+listId);
+      // Keep every task reachable, with long lists contained inside their column.
+      const scroll = list.scrollTop;
+      list.innerHTML = tasks.map((task,index) => renderAdminTodayTask(task, listId === 'adminCompletedTasks' && index === 0)).join('') || '<p class="management-empty">'+empty+'</p>';
+      list.scrollTop = scroll;
+      list.querySelectorAll('[data-overview-task]').forEach(button => button.addEventListener('click', () => openTaskDetails(adminData.tasks.find(task => task.id === button.dataset.overviewTask))));
+    }
   }
 
-  function renderAdminTodayTask(task) {
-    return `
-      <div class="admin-mini-card">
-        <p class="text-sm font-black text-slate-900">${escapeHtml(task.titulo)}</p>
-        <p class="task-sender">Enviada por: ${escapeHtml(taskSenderName(task))}</p><p class="mt-1 text-xs text-slate-500">${escapeHtml(getUserLabelByEmail(task.atribuidoPara))} | ${escapeHtml(formatTaskSchedule(task))}</p>
-      </div>
-    `;
+  function renderAdminTodayTask(task, latest = false) {
+    const completed = task.status === 'Concluida';
+    return '<button type="button" class="management-task'+(latest ? ' latest-completion' : '')+'" data-overview-task="'+escapeHtml(task.id)+'">'+
+      (latest ? '<span class="latest-label">✓ Última entrega</span>' : '')+
+      '<strong>'+escapeHtml(task.titulo)+'</strong><span class="management-person">'+escapeHtml(getUserLabelByEmail(task.atribuidoPara))+'</span>'+
+      '<span class="management-date">Enviada por: '+escapeHtml(taskSenderName(task))+'</span>'+
+      '<span class="management-date">'+escapeHtml(completed ? 'Concluída: '+(task.dataConclusao || 'data não registrada') : 'Prazo: '+formatTaskSchedule(task))+'</span>'+
+      '<span class="management-task-footer">'+statusBadge(task.status)+'<span>Ver detalhes →</span></span></button>';
   }
 
   function renderAdminSelects() {

@@ -29,24 +29,25 @@ export async function initPush(query) {
       user_email TEXT NOT NULL, task_id TEXT NOT NULL, title TEXT NOT NULL,
       attempts INTEGER NOT NULL DEFAULT 0, available_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE push_outbox ADD COLUMN IF NOT EXISTS body TEXT NOT NULL DEFAULT '';
     CREATE INDEX IF NOT EXISTS push_pending_idx ON push_outbox(available_at);
     CREATE OR REPLACE FUNCTION queue_task_push() RETURNS TRIGGER LANGUAGE plpgsql AS $$
     BEGIN
       IF TG_OP = 'INSERT' THEN
-        INSERT INTO push_outbox(endpoint,user_email,task_id,title)
-          SELECT endpoint,user_email,NEW.id,'Nova tarefa recebida' FROM push_subscriptions WHERE user_email = NEW.atribuido_para;
+        INSERT INTO push_outbox(endpoint,user_email,task_id,title,body)
+          SELECT endpoint,user_email,NEW.id,'Nova tarefa recebida',LEFT(COALESCE(NEW.titulo,''),240) FROM push_subscriptions WHERE user_email = NEW.atribuido_para;
       ELSE
         IF NEW.atribuido_para IS DISTINCT FROM OLD.atribuido_para THEN
-          INSERT INTO push_outbox(endpoint,user_email,task_id,title)
-            SELECT endpoint,user_email,NEW.id,'Tarefa atribuída a você' FROM push_subscriptions WHERE user_email = NEW.atribuido_para;
+          INSERT INTO push_outbox(endpoint,user_email,task_id,title,body)
+            SELECT endpoint,user_email,NEW.id,'Tarefa atribuída a você',LEFT(COALESCE(NEW.titulo,''),240) FROM push_subscriptions WHERE user_email = NEW.atribuido_para;
         END IF;
         IF NEW.status IS DISTINCT FROM OLD.status AND NEW.solicitado_por IS NOT NULL THEN
-          INSERT INTO push_outbox(endpoint,user_email,task_id,title)
-            SELECT endpoint,user_email,NEW.id,'Uma tarefa enviada foi atualizada' FROM push_subscriptions WHERE user_email = NEW.solicitado_por;
+          INSERT INTO push_outbox(endpoint,user_email,task_id,title,body)
+            SELECT endpoint,user_email,NEW.id,'Uma tarefa enviada foi atualizada',LEFT(COALESCE(NEW.titulo,''),240) FROM push_subscriptions WHERE user_email = NEW.solicitado_por;
         END IF;
         IF COALESCE(NEW.obs_conclusao,'') <> '' AND NEW.obs_conclusao IS DISTINCT FROM OLD.obs_conclusao THEN
-          INSERT INTO push_outbox(endpoint,user_email,task_id,title)
-            SELECT s.endpoint,s.user_email,NEW.id,'Nova observação de conclusão' FROM push_subscriptions s JOIN usuarios u ON u.email = s.user_email WHERE u.perfil = 'Admin';
+          INSERT INTO push_outbox(endpoint,user_email,task_id,title,body)
+            SELECT s.endpoint,s.user_email,NEW.id,'Nova observação de conclusão',LEFT(COALESCE(NEW.titulo,''),240) FROM push_subscriptions s JOIN usuarios u ON u.email = s.user_email WHERE u.perfil = 'Admin';
         END IF;
       END IF;
       RETURN NEW;
@@ -86,26 +87,29 @@ export function createPushService(query, transport = webpush) {
     },
     async dispatch() {
       await query("DELETE FROM push_outbox WHERE attempts >= 5 OR created_at < NOW() - INTERVAL '1 day'");
-      const r=await query(`UPDATE push_outbox SET attempts=attempts+1, available_at=NOW()+INTERVAL '60 seconds'
-        WHERE id IN (SELECT id FROM push_outbox WHERE available_at<=NOW() ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED) RETURNING *`);
-      if (!r.rowCount) return;
-      const vapid=await keys();
-      await Promise.all(r.rows.map(async event => {
-        try {
-          const target=await query('SELECT subscription FROM push_subscriptions WHERE endpoint=$1 AND user_email=$2',[event.endpoint,event.user_email]);
-          if (target.rowCount) {
-            const subscription=validateSubscription(target.rows[0].subscription);
-            await transport.sendNotification(subscription,JSON.stringify({title:event.title,body:'Abra o Doctor House para conferir.',url:event.task_id ? '/?task='+encodeURIComponent(event.task_id) : '/',tag:'task-'+(event.task_id || event.id)}),{
-              vapidDetails:{subject:'mailto:contato@doctorhouse.com.br',...vapid},TTL:86400,timeout:6000,urgency:'high'
-            });
+      // Drain bursts immediately instead of waiting for one timer per batch.
+      for (let batch = 0; batch < 10; batch++) {
+        const r=await query(`UPDATE push_outbox SET attempts=attempts+1, available_at=NOW()+INTERVAL '60 seconds'
+          WHERE id IN (SELECT id FROM push_outbox WHERE available_at<=NOW() ORDER BY id LIMIT 20 FOR UPDATE SKIP LOCKED) RETURNING *`);
+        if (!r.rowCount) return;
+        const vapid=await keys();
+        await Promise.all(r.rows.map(async event => {
+          try {
+            const target=await query('SELECT subscription FROM push_subscriptions WHERE endpoint=$1 AND user_email=$2',[event.endpoint,event.user_email]);
+            if (target.rowCount) {
+              const subscription=validateSubscription(target.rows[0].subscription);
+              await transport.sendNotification(subscription,JSON.stringify({title:event.title,body:event.body || 'Abra o Doctor House para conferir.',url:event.task_id ? '/?task='+encodeURIComponent(event.task_id) : '/',tag:'task-'+(event.task_id || event.id)}),{
+                vapidDetails:{subject:'mailto:contato@doctorhouse.com.br',...vapid},TTL:86400,timeout:6000,urgency:'high'
+              });
+            }
+            await query('DELETE FROM push_outbox WHERE id=$1',[event.id]);
+          } catch(error) {
+            console.error('Push delivery failed', {status:error.statusCode || 'network',attempt:event.attempts});
+            if ([404,410].includes(error.statusCode)) await query('DELETE FROM push_subscriptions WHERE endpoint=$1',[event.endpoint]);
+            // Other failures retain the leased event for a bounded retry.
           }
-          await query('DELETE FROM push_outbox WHERE id=$1',[event.id]);
-        } catch(error) {
-          console.error('Push delivery failed', {status:error.statusCode || 'network',attempt:event.attempts});
-          if ([404,410].includes(error.statusCode)) await query('DELETE FROM push_subscriptions WHERE endpoint=$1',[event.endpoint]);
-          // Other failures retain the leased event for a bounded retry.
-        }
-      }));
+        }));
+      }
     }
   };
 }
