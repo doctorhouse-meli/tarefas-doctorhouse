@@ -356,18 +356,20 @@ let currentUser = null;
       const scroll = list.scrollTop;
       list.innerHTML = tasks.map((task,index) => renderAdminTodayTask(task, listId === 'adminCompletedTasks' && index === 0)).join('') || '<p class="management-empty">'+empty+'</p>';
       list.scrollTop = scroll;
+      list.querySelectorAll('[data-overview-edit]').forEach(button => button.addEventListener('click', () => openEditTask(button.dataset.overviewEdit)));
       list.querySelectorAll('[data-overview-task]').forEach(button => button.addEventListener('click', () => openTaskDetails(adminData.tasks.find(task => task.id === button.dataset.overviewTask))));
     }
   }
 
   function renderAdminTodayTask(task, latest = false) {
     const completed = task.status === 'Concluida';
-    return '<button type="button" class="management-task'+(latest ? ' latest-completion' : '')+'" data-overview-task="'+escapeHtml(task.id)+'">'+
+    return '<article class="management-task'+(latest ? ' latest-completion' : '')+'"><button type="button" class="management-open" data-overview-task="'+escapeHtml(task.id)+'">'+
       (latest ? '<span class="latest-label">✓ Última entrega</span>' : '')+
       '<strong>'+escapeHtml(task.titulo)+'</strong><span class="management-person">'+escapeHtml(getUserLabelByEmail(task.atribuidoPara))+'</span>'+
       '<span class="management-date">Enviada por: '+escapeHtml(taskSenderName(task))+'</span>'+
       '<span class="management-date">'+escapeHtml(completed ? 'Concluída: '+(task.dataConclusao || 'data não registrada') : 'Prazo: '+formatTaskSchedule(task))+'</span>'+
-      '<span class="management-task-footer">'+statusBadge(task.status)+'<span>Ver detalhes →</span></span></button>';
+      '<span class="management-task-footer">'+statusBadge(task.status)+'<span>Ver detalhes →</span></span></button>'+
+      (hasTaskPermission('editarTarefas') ? '<div class="management-actions"><button type="button" class="row-btn" data-overview-edit="'+escapeHtml(task.id)+'">Editar</button></div>' : '')+'</article>';
   }
 
   function renderAdminSelects() {
@@ -424,11 +426,18 @@ let currentUser = null;
     return user ? user.nome : email;
   }
 
+  function sortAdminTasks(tasks) {
+    const active = sortEmployeeTasks(tasks.filter(task => task.status !== 'Concluida'));
+    const completed = tasks.filter(task => task.status === 'Concluida')
+      .sort((a,b) => Number(b.dataConclusaoSort || 0) - Number(a.dataConclusaoSort || 0));
+    return active.concat(completed);
+  }
+
   function renderAdminTasks() {
     const employee = $('#filterEmployee').value;
     const workspace = $('#filterWorkspace').value;
     const status = $('#filterStatus').value;
-    const tasks = sortEmployeeTasks(adminData.tasks).filter((task) => {
+    const tasks = sortAdminTasks(adminData.tasks).filter((task) => {
       const matchesEmployee = !employee || task.atribuidoPara === employee;
       const matchesWorkspace = !workspace || task.workspace === workspace;
       const matchesStatus = !status || task.status === status;
@@ -448,6 +457,7 @@ let currentUser = null;
         </td>
         <td data-label="Prioridade" class="px-4 py-3">${priorityBadge(task.prioridade)}</td>
         <td data-label="Prazo" class="px-4 py-3">${escapeHtml(formatTaskSchedule(task))}</td>
+        <td data-label="Concluída em" class="px-4 py-3">${escapeHtml(task.status === 'Concluida' ? (task.dataConclusao || 'Não registrada') : '—')}</td>
         <td data-label="Status" class="px-4 py-3">${statusBadge(task.status)}</td>
         <td data-label="Tipo" class="px-4 py-3">${escapeHtml(task.tipo)}</td>
         <td data-label="Ações" class="px-4 py-3">
@@ -460,7 +470,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
       </tr>
     `).join('') || `
       <tr>
-        <td colspan="7" class="px-4 py-8 text-center text-sm font-medium text-slate-500">Nenhuma tarefa encontrada com os filtros atuais.</td>
+        <td colspan="8" class="px-4 py-8 text-center text-sm font-medium text-slate-500">Nenhuma tarefa encontrada com os filtros atuais.</td>
       </tr>
     `;
 
