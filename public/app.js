@@ -356,20 +356,25 @@ let currentUser = null;
       const scroll = list.scrollTop;
       list.innerHTML = tasks.map((task,index) => renderAdminTodayTask(task, listId === 'adminCompletedTasks' && index === 0)).join('') || '<p class="management-empty">'+empty+'</p>';
       list.scrollTop = scroll;
-      list.querySelectorAll('[data-overview-edit]').forEach(button => button.addEventListener('click', () => openEditTask(button.dataset.overviewEdit)));
-      list.querySelectorAll('[data-overview-task]').forEach(button => button.addEventListener('click', () => openTaskDetails(adminData.tasks.find(task => task.id === button.dataset.overviewTask))));
+      list.querySelectorAll('[data-overview-task]').forEach(button => button.addEventListener('click', () => openOverviewTask(button.dataset.overviewTask)));
     }
+  }
+
+  function openOverviewTask(taskId) {
+    const task = adminData.tasks.find(task => task.id === taskId);
+    if (!task) return;
+    if (hasTaskPermission('editarTarefas')) openEditTask(taskId);
+    else openTaskDetails(task);
   }
 
   function renderAdminTodayTask(task, latest = false) {
     const completed = task.status === 'Concluida';
-    return '<article class="management-task'+(latest ? ' latest-completion' : '')+'"><button type="button" class="management-open" data-overview-task="'+escapeHtml(task.id)+'">'+
+    return '<button type="button" class="management-task'+(latest ? ' latest-completion' : '')+'" data-overview-task="'+escapeHtml(task.id)+'">'+
       (latest ? '<span class="latest-label">✓ Última entrega</span>' : '')+
       '<strong>'+escapeHtml(task.titulo)+'</strong><span class="management-person">'+escapeHtml(getUserLabelByEmail(task.atribuidoPara))+'</span>'+
       '<span class="management-date">Enviada por: '+escapeHtml(taskSenderName(task))+'</span>'+
       '<span class="management-date">'+escapeHtml(completed ? 'Concluída: '+(task.dataConclusao || 'data não registrada') : 'Prazo: '+formatTaskSchedule(task))+'</span>'+
-      '<span class="management-task-footer">'+statusBadge(task.status)+'<span>Ver detalhes →</span></span></button>'+
-      (hasTaskPermission('editarTarefas') ? '<div class="management-actions"><button type="button" class="row-btn" data-overview-edit="'+escapeHtml(task.id)+'">Editar</button></div>' : '')+'</article>';
+      '<span class="management-task-footer">'+statusBadge(task.status)+'<span>Abrir tarefa →</span></span></button>';
   }
 
   function renderAdminSelects() {

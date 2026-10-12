@@ -18,12 +18,14 @@ test('gestão ordena concluídas pela conclusão, não pelo prazo, e mantém tar
   ]).map(task=>task.id)`);
   assert.deepEqual(Array.from(ids),['doing','pending','new','old','unknown']);
 });
-test('editar na visão geral exige permissão e fica separado do botão de detalhes',()=>{
+test('clique no cartão abre edição apenas com permissão, sem botão separado',()=>{
   const run=app();
-  run(`currentUser={permissoes:{editarTarefas:false}}; var task={id:'example',titulo:'Teste',status:'Pendente',atribuidoPara:'a@test'};`);
-  assert.doesNotMatch(run('renderAdminTodayTask(task)'),/data-overview-edit/);
-  run('currentUser.permissoes.editarTarefas=true');
+  run("currentUser={permissoes:{editarTarefas:false}}; var task={id:'example',titulo:'Teste',status:'Pendente',atribuidoPara:'a@test'}; adminData.tasks=[task]; var opened=''; openEditTask=id=>opened='edit:'+id; openTaskDetails=task=>opened='details:'+task.id;");
+  run("openOverviewTask('example')");
+  assert.equal(run('opened'),'details:example');
+  run("currentUser.permissoes.editarTarefas=true; openOverviewTask('example');");
+  assert.equal(run('opened'),'edit:example');
   const html=run('renderAdminTodayTask(task)');
-  assert.match(html,/data-overview-edit="example"/);
-  assert.match(html,/<\/button><div class="management-actions"><button/);
+  assert.doesNotMatch(html,/data-overview-edit|management-actions/);
+  assert.equal((html.match(/<button/g)||[]).length,1);
 });
