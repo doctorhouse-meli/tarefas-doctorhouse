@@ -603,8 +603,9 @@ export async function getCompletionNotifications(userEmail) {
     LEFT JOIN notificacoes_lidas l ON l.historico_id = h.id AND l.usuario_email = $1
     WHERE h.acao = 'Alterou status' AND h.detalhes = 'Concluida'
       AND h.autor_email <> $1
+      AND (h.data_hora AT TIME ZONE $2)::date = $3::date
     ORDER BY (l.historico_id IS NOT NULL), h.data_hora DESC
-    LIMIT 200`, [normalizeEmail(userEmail)]);
+    LIMIT 200`, [normalizeEmail(userEmail), TZ, todayKey()]);
   return result.rows;
 }
 
