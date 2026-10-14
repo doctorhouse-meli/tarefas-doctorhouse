@@ -73,10 +73,17 @@
                 <p id="userInfo" class="text-sm text-slate-500"></p>
               </div>
             </div>
-            <button id="logoutBtn" class="btn-secondary">Sair</button>
+            <div class="flex items-center gap-2">
+              <button id="completionNotificationsBtn" type="button" class="btn-secondary hidden">Conclusões <span id="completionNotificationsCount">0</span></button>
+              <button id="logoutBtn" class="btn-secondary">Sair</button>
+            </div>
           </div>
         </header>
 
+        <section id="completionNotificationsPanel" class="mx-auto hidden max-w-7xl p-4" aria-label="Notificações de conclusão">
+          <h2 class="text-lg font-bold mb-3">Tarefas concluídas pela equipe</h2>
+          <div id="completionNotificationsList" class="space-y-2"></div>
+        </section>
         <div id="adminView" class="mx-auto hidden max-w-7xl p-4">
           <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -541,9 +548,12 @@
     <script src="/admin-recurrences.js?v=20261012-2"></script>
     <script src="/notification-sounds.js?v=20261012-2"></script>
     <script src="/admin-overview.js?v=20261012-2"></script>
-    <script src="/app.js?v=20261012-2"></script>
+    <script src="/completion-notifications.js?v=20261014-1"></script>
+    <script src="/app.js?v=20261014-1"></script>
   <script src="/workspace.js?v=20261012-2"></script>
   <script src="/task-creator.js?v=20261012-2"></script>
   </body>
 </html>
+
+
 

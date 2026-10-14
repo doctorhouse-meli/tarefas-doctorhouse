@@ -139,6 +139,7 @@ let currentUser = null;
   }
 
   async function logout() {
+    resetCompletionNotifications();
     if (typeof pwaLogout === 'function') { try { await pwaLogout(); } catch {} }
     resetNotificationSounds();
     showCompletedRequests = false;
@@ -271,7 +272,7 @@ let currentUser = null;
     if (recurrenceVersion !== (typeof recurrenceRevision === 'undefined' ? 0 : recurrenceRevision)) return;
     if (background && isAdminRefreshBlocked()) return;
     adminData = result;
-    notifyAdminCompletionNotes(adminData.tasks || []);
+    await refreshCompletionNotifications();
     renderAdminStats();
     renderAdminTodayPanel();
     renderAdminSelects();
@@ -646,6 +647,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
   }
 
   async function loadEmployee(isInitialLoad = false) {
+    void refreshCompletionNotifications();
     await refreshCurrentPermissions();
     $('#employeeView').classList.remove('hidden');
     $('#adminView').classList.add('hidden');
@@ -1722,3 +1724,5 @@ function updateRecipientVisibility() {
   const form=$('#userForm');
   $('#analystPermissions').hidden=!(form.elements.criarParaOutros.checked || form.elements.encaminharTarefas.checked);
 }
+
+

@@ -592,6 +592,29 @@ export async function getSentTasks(userEmail) {
   return result.rows.map(formatTask);
 }
 
+export async function getCompletionNotifications(userEmail) {
+  const result = await query(`
+    SELECT h.id, h.task_id, h.data_hora, t.titulo, t.obs_conclusao,
+           COALESCE(u.nome, h.autor_email) AS autor,
+           (l.historico_id IS NOT NULL) AS lida
+    FROM historico h
+    JOIN tarefas t ON t.id = h.task_id
+    LEFT JOIN usuarios u ON u.email = h.autor_email
+    LEFT JOIN notificacoes_lidas l ON l.historico_id = h.id AND l.usuario_email = $1
+    WHERE h.acao = 'Alterou status' AND h.detalhes = 'Concluida'
+      AND h.autor_email <> $1
+    ORDER BY (l.historico_id IS NOT NULL), h.data_hora DESC
+    LIMIT 200`, [normalizeEmail(userEmail)]);
+  return result.rows;
+}
+
+export async function markCompletionRead(notificationId, userEmail) {
+  await query(`INSERT INTO notificacoes_lidas (usuario_email, historico_id)
+    VALUES ($1, $2) ON CONFLICT DO NOTHING`, [normalizeEmail(userEmail), notificationId]);
+  return { success: true };
+}
+
+
 export async function getAdminDashboardData() {
   await generateDailyTasks();
   const [tasksResult, usersResult, workspaces, templatesResult] = await Promise.all([
@@ -936,6 +959,8 @@ export async function saveNotificationSettings(data) {
 }
 
 const rpc = {
+  getCompletionNotifications,
+  markCompletionRead,
   getNotificationSettings,
   saveNotificationSettings,
   loginUser,
@@ -975,6 +1000,8 @@ const rpc = {
 };
 
 const adminOnly = new Set([
+  'getCompletionNotifications',
+  'markCompletionRead',
   'saveNotificationSettings',
   'getAdminDashboardData',
   'getWorkspaces',
@@ -991,6 +1018,8 @@ const adminOnly = new Set([
 ]);
 
 const emailArgIndex = {
+  getCompletionNotifications: 0,
+  markCompletionRead: 1,
   getEmployeeTasks: 0,
   getSentTasks: 0,
   getAllowedTaskRecipients: 0,
@@ -1014,6 +1043,10 @@ const emailArgIndex = {
 function authorizeRpc(functionName, args, req) {
   if (functionName === 'loginUser') return;
   const user = getBearerUser(req);
+  if (['getCompletionNotifications', 'markCompletionRead'].includes(functionName) &&
+      normalizeEmail(args[emailArgIndex[functionName]]) !== normalizeEmail(user.email)) {
+    throw new Error('Usuario invalido.');
+  }
   if (adminOnly.has(functionName) && user.perfil !== 'Admin') {
     throw new Error('Acesso permitido apenas para Admin.');
   }
@@ -1142,3 +1175,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   setInterval(tick,5000).unref();
   void tick();
 }
+
+

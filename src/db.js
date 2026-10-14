@@ -19,6 +19,11 @@ export async function closeDb() {
 }
 
 export async function initDb() {
+  await query(`CREATE TABLE IF NOT EXISTS notificacoes_lidas (
+    usuario_email TEXT NOT NULL,
+    historico_id TEXT NOT NULL,
+    PRIMARY KEY (usuario_email, historico_id)
+  )`);
   await query(`
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -167,3 +172,5 @@ export function makeId(prefix) {
   const random = crypto.randomUUID().slice(0, 8).toUpperCase();
   return `${prefix}-${random}`;
 }
+
+
