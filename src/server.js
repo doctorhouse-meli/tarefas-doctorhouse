@@ -722,13 +722,28 @@ export async function getEmployeeDailyTemplates(userEmail) {
 export async function createEmployeeDailyTemplate(templateData, userEmail) {
   const user = await getUserByEmail(userEmail);
   if (!user) throw new Error('Usuario nao encontrado.');
+  if (user.perfil !== 'Admin' && user.permissoes?.criarTarefasRepetitivas !== true) {
+    throw new Error('Seu cadastro não permite criar tarefas repetitivas.');
+  }
+  let recipient = user;
+  if (templateData.recipientId && templateData.recipientId !== user.id) {
+    const recipients = await getAllowedTaskRecipients(user.email);
+    const allowed = recipients.find(person => person.id === templateData.recipientId);
+    if (!allowed) throw new Error('Destinatário não autorizado no cadastro.');
+    recipient = allowed;
+  }
+  if (!['Baixa','Media','Alta','Urgente'].includes(templateData.prioridade)) throw new Error('Prioridade inválida.');
+  if (!String(templateData.diasSemana || '').split(',').every(day => /^[0-6]$/.test(day.trim()))) {
+    throw new Error('Selecione os dias da repetição.');
+  }
   const template = await createDailyTemplate({
     ...templateData,
-    workspace: user.workspace,
-    atribuidoPara: user.email,
+    workspace: recipient.workspace,
+    atribuidoPara: recipient.email,
     autorEmail: user.email,
   });
-  if (String(templateData.criarHoje || '').toLowerCase() === 'true') {
+  if (String(templateData.criarHoje || '').toLowerCase() === 'true' &&
+      normalizeWeekdays(templateData.diasSemana).split(',').includes(String(weekdayKey()))) {
     await createTaskFromTemplate(template, todayKey());
   }
   return template;
@@ -1176,5 +1191,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   setInterval(tick,5000).unref();
   void tick();
 }
+
+
 
 

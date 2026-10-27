@@ -344,7 +344,7 @@
             <h2 class="text-lg font-semibold">Tarefas Diarias Programadas</h2>
             <p class="mt-1 text-sm text-slate-500">Modelos que viram tarefa automaticamente todos os dias.</p>
           </div>
-          <button data-modal="employeeTemplateModal" class="rounded-md bg-slate-900 px-3 py-2 text-sm font-bold text-white">Nova tarefa diaria</button>
+          <button data-modal="employeeTaskModal" data-repeat-default="weekdays" data-recurring-create class="rounded-md bg-slate-900 px-3 py-2 text-sm font-bold text-white">Criar tarefa com repetição</button>
         </div>
         <div id="employeeTemplates" class="mt-4 overflow-hidden rounded-lg border border-slate-200"></div>
         <div class="mt-5 flex justify-end">
@@ -420,6 +420,29 @@
           <label class="field-label">Observação de conclusão<textarea name="obsConclusao" class="input" placeholder="Usada quando a tarefa estiver concluída"></textarea></label>
         </div>
         <p id="employeeTaskError" class="hidden mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700" role="alert"></p>
+        <div id="employeeRecurrenceFields" class="mt-4 grid gap-3" hidden>
+          <label class="field-label">Repetir
+            <select id="employeeRepeat" class="input">
+              <option value="none">Não repetir</option>
+              <option value="daily">Todos os dias</option>
+              <option value="weekdays">Dias úteis — segunda a sexta</option>
+              <option value="weekly">Toda semana</option>
+              <option value="custom">Escolher dias da semana</option>
+            </select>
+          </label>
+          <label id="employeeRepeatWeekdayField" class="field-label" hidden>Dia da semana
+            <select id="employeeRepeatWeekday" class="input"><option value="1">Segunda</option><option value="2">Terça</option><option value="3">Quarta</option><option value="4">Quinta</option><option value="5">Sexta</option><option value="6">Sábado</option><option value="0">Domingo</option></select>
+          </label>
+          <fieldset id="employeeRepeatDaysField" hidden><legend>Dias da semana</legend><div class="flex flex-wrap gap-3 mt-2">
+            <label><input type="checkbox" name="employeeRepeatDays" value="1" checked> Seg</label>
+            <label><input type="checkbox" name="employeeRepeatDays" value="2" checked> Ter</label>
+            <label><input type="checkbox" name="employeeRepeatDays" value="3" checked> Qua</label>
+            <label><input type="checkbox" name="employeeRepeatDays" value="4" checked> Qui</label>
+            <label><input type="checkbox" name="employeeRepeatDays" value="5" checked> Sex</label>
+            <label><input type="checkbox" name="employeeRepeatDays" value="6"> Sáb</label>
+            <label><input type="checkbox" name="employeeRepeatDays" value="0"> Dom</label>
+          </div></fieldset>
+        </div>
         <div class="mt-5 flex justify-end gap-2">
           <button type="button" class="closeModal rounded-md border px-3 py-2">Cancelar</button>
           <button type="submit" class="rounded-md bg-slate-900 px-3 py-2 text-white">Salvar</button>
@@ -550,11 +573,13 @@
     <script src="/notification-sounds.js?v=20261012-2"></script>
     <script src="/admin-overview.js?v=20261012-2"></script>
     <script src="/completion-notifications.js?v=20261014-1"></script>
-    <script src="/app.js?v=20261027-1"></script>
+    <script src="/app.js?v=20261027-2"></script>
   <script src="/workspace.js?v=20261012-2"></script>
   <script src="/task-creator.js?v=20261012-2"></script>
   </body>
 </html>
+
+
 
 
 

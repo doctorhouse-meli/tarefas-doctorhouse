@@ -42,6 +42,7 @@ let currentUser = null;
     initTimeSelectors();
     $('#loginForm').addEventListener('submit', handleLogin);
     $('#logoutBtn').addEventListener('click', logout);
+    $('#employeeRepeat').addEventListener('change', updateEmployeeRecurrence);
     $('#overviewEmployee').addEventListener('change', renderAdminTodayPanel);
     $('#filterEmployee').addEventListener('change', renderAdminTasks);
     $('#filterWorkspace').addEventListener('change', renderAdminTasks);
@@ -88,7 +89,13 @@ let currentUser = null;
         }
         if (button.dataset.modal === 'taskModal' && button.dataset.mode === 'create') resetTaskForm();
         if (button.dataset.modal === 'userModal' && button.dataset.mode === 'create') resetUserForm();
-        if (button.dataset.modal === 'employeeTaskModal') resetOwnTaskForm();
+        if (button.dataset.modal === 'employeeTaskModal') {
+          resetOwnTaskForm();
+          if (button.dataset.repeatDefault && canCreateRecurringTasks()) {
+            $('#employeeRepeat').value = button.dataset.repeatDefault;
+            updateEmployeeRecurrence();
+          }
+        }
         closeModals();
         openModal(button.dataset.modal);
         if (button.dataset.modal === 'employeeTaskModal') loadOwnTaskRecipients();
@@ -653,7 +660,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
   async function loadEmployee(isInitialLoad = false) {
     void refreshCompletionNotifications();
     await refreshCurrentPermissions();
-    $$('[data-modal="employeeTemplateModal"]').forEach(button => { button.hidden = !canCreateRecurringTasks(); });
+    $$('[data-modal="employeeTemplateModal"], [data-recurring-create]').forEach(button => { button.hidden = !canCreateRecurringTasks(); });
     $('#employeeView').classList.remove('hidden');
     $('#adminView').classList.add('hidden');
     $('#openAdminControlBtn').classList.toggle('hidden', currentUser?.perfil !== 'Admin');
@@ -1186,9 +1193,27 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     $('#employeeTaskForm').elements.id.value = '';
     setTimeField($('#employeeTaskForm'), 'horarioPrazo', '');
     $('#employeeTaskTitle').textContent = 'Nova tarefa';
-    $('#employeeTaskHint').textContent = 'Esta tarefa será criada para você.';
+    $('#employeeTaskHint').textContent = 'Escolha o responsável, o prazo e a repetição.';
     $('#employeeTaskEditFields').hidden = true;
     $('#employeeTaskError').classList.add('hidden');
+    updateEmployeeRecurrence();
+  }
+
+  function updateEmployeeRecurrence() {
+    const form = $('#employeeTaskForm');
+    const editing = !!form.elements.id.value;
+    const allowed = canCreateRecurringTasks() && !editing;
+    const select = $('#employeeRepeat');
+    if (!allowed) select.value = 'none';
+    $('#employeeRecurrenceFields').hidden = !allowed;
+    const recurring = allowed && select.value !== 'none';
+    form.elements.dataPrazo.disabled = recurring;
+    form.elements.dataPrazo.required = !recurring;
+    form.elements.dataPrazo.hidden = recurring;
+    const dateLabel = form.elements.dataPrazo.closest('label');
+    if (dateLabel) dateLabel.hidden = recurring;
+    $('#employeeRepeatWeekdayField').hidden = !recurring || select.value !== 'weekly';
+    $('#employeeRepeatDaysField').hidden = !recurring || select.value !== 'custom';
   }
 
   function openOwnTaskEditor(taskId) {
@@ -1197,6 +1222,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     resetOwnTaskForm();
     const form = $('#employeeTaskForm');
     for (const key of ['id','titulo','descricao','prioridade','dataPrazo','status','obsConclusao']) form.elements[key].value = task[key] || '';
+    updateEmployeeRecurrence();
     setTimeField(form, 'horarioPrazo', task.horarioPrazo || '');
     $('#employeeTaskTitle').textContent = 'Editar minha tarefa';
     $('#employeeTaskHint').textContent = task.tipo === 'Diaria' ? 'As alterações valem somente para esta tarefa, sem mudar a programação das próximas.' : 'Seu cadastro permite editar as tarefas atribuídas a você.';
@@ -1213,15 +1239,23 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     ownTaskSavePending = true; button.disabled = true; button.textContent = 'Salvando…';
     try {
       if (data.id) await callServer('updateOwnTask', data.id, data, currentUser.email);
+      else if ($('#employeeRepeat').value !== 'none') {
+        if (!canCreateRecurringTasks()) throw new Error('Seu cadastro não permite criar tarefas repetitivas.');
+        data.diasSemana = creatorRepeatDays($('#employeeRepeat').value, $('#employeeRepeatWeekday').value,
+          Array.from(form.querySelectorAll('[name=employeeRepeatDays]:checked'), input => input.value));
+        data.criarHoje = 'true';
+        await callServer('createEmployeeDailyTemplate', data, currentUser.email);
+      }
       else if (data.recipientId) await callServer('createAssignedTask', data, currentUser.email);
       else await callServer('createEmployeeTask', data, currentUser.email);
     } catch(error) {
       errorBox.textContent = error.message || 'Não foi possível salvar. Seus dados continuam no formulário.';
       errorBox.classList.remove('hidden'); return;
     } finally { ownTaskSavePending = false; button.disabled = false; button.textContent = 'Salvar'; }
+    const recurring = !data.id && $('#employeeRepeat').value !== 'none';
     form.reset();
     closeModals();
-    showToast(data.id ? 'Tarefa atualizada.' : 'Tarefa criada.');
+    showToast(data.id ? 'Tarefa atualizada.' : recurring ? 'Repetição criada para o responsável escolhido.' : 'Tarefa criada.');
     employeeTaskFilter = data.id && data.status === 'Concluida' ? 'done' : 'all'; taskSearch = ''; $('#taskSearch').value = '';
     await loadEmployee(false);
   }
@@ -1734,6 +1768,8 @@ function updateRecipientVisibility() {
   const form=$('#userForm');
   $('#analystPermissions').hidden=!(form.elements.criarParaOutros.checked || form.elements.encaminharTarefas.checked);
 }
+
+
 
 
 
