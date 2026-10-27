@@ -114,10 +114,12 @@ test('PostgreSQL: migração para dois perfis, permissões, escopo, encaminhamen
 });
 
 test('editor de usuário recupera destinatários e permissões do colaborador',()=>{
- const form={elements:Object.fromEntries(['id','emailOriginal','nome','email','senha','perfil','workspace','excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas'].map(name=>[name,{}]))};
+ const form={elements:Object.fromEntries(['id','emailOriginal','nome','email','senha','perfil','workspace','excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas','criarTarefasRepetitivas'].map(name=>[name,{}]))};
  const title={};let selected;
  const c=vm.createContext({document:{title:'',addEventListener(){},querySelector:selector=>selector==='#userForm'?form:title},form,title,capture:ids=>{selected=Array.from(ids)}});
  vm.runInContext(fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8'),c);
  vm.runInContext("openModal=()=>{};renderAnalystPermissions=capture;adminData={usuarios:[{id:'ana',nome:'Ana',email:'ana@test',perfil:'Colaborador',workspace:'Principal',destinatariosPermitidos:['adm','col']}]};",c);
  c.openEditUser('ana');assert.equal(form.elements.perfil.value,'Colaborador');assert.deepEqual(selected,['adm','col']);
 });
+
+

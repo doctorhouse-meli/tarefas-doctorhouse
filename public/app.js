@@ -82,6 +82,10 @@ let currentUser = null;
 
     $$('[data-modal]').forEach((button) => {
       button.addEventListener('click', () => {
+        if (button.dataset.modal === 'employeeTemplateModal' && !canCreateRecurringTasks()) {
+          showToast('Peça ao administrador para liberar a criação de tarefas repetitivas.');
+          return;
+        }
         if (button.dataset.modal === 'taskModal' && button.dataset.mode === 'create') resetTaskForm();
         if (button.dataset.modal === 'userModal' && button.dataset.mode === 'create') resetUserForm();
         if (button.dataset.modal === 'employeeTaskModal') resetOwnTaskForm();
@@ -649,6 +653,7 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
   async function loadEmployee(isInitialLoad = false) {
     void refreshCompletionNotifications();
     await refreshCurrentPermissions();
+    $$('[data-modal="employeeTemplateModal"]').forEach(button => { button.hidden = !canCreateRecurringTasks(); });
     $('#employeeView').classList.remove('hidden');
     $('#adminView').classList.add('hidden');
     $('#openAdminControlBtn').classList.toggle('hidden', currentUser?.perfil !== 'Admin');
@@ -1155,6 +1160,10 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
 
   async function handleCreateEmployeeTemplate(event) {
     event.preventDefault();
+    if (!canCreateRecurringTasks()) {
+      showToast('Peça ao administrador para liberar a criação de tarefas repetitivas.');
+      return;
+    }
     await callServer('createEmployeeDailyTemplate', formToObject(event.target), currentUser.email);
     event.target.reset();
     closeModals();
@@ -1686,7 +1695,8 @@ ${hasTaskPermission('excluirTarefas') ? `<button class="deleteTaskBtn row-btn ro
     } catch { showToast('Não foi possível carregar as pessoas autorizadas. Feche e abra Nova tarefa para tentar novamente.'); }
   }
 
-const TASK_PERMISSION_KEYS=['excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas'];
+const TASK_PERMISSION_KEYS=['excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas','criarTarefasRepetitivas'];
+function canCreateRecurringTasks() { return currentUser?.perfil === 'Admin' || hasTaskPermission('criarTarefasRepetitivas'); }
 function hasTaskPermission(key) { return currentUser?.permissoes?.[key]===true; }
 async function refreshCurrentPermissions() {
   const email=currentUser?.email;if(!email)return;
@@ -1724,5 +1734,7 @@ function updateRecipientVisibility() {
   const form=$('#userForm');
   $('#analystPermissions').hidden=!(form.elements.criarParaOutros.checked || form.elements.encaminharTarefas.checked);
 }
+
+
 
 

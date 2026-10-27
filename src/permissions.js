@@ -1,4 +1,4 @@
-export const PERMISSION_KEYS = ['excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas'];
+export const PERMISSION_KEYS = ['excluirTarefas','encaminharTarefas','criarParaOutros','editarTarefas','criarTarefasRepetitivas'];
 export function validatePermissions(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key=>!PERMISSION_KEYS.includes(key)) || Object.values(value).some(v=>typeof v!=='boolean')) throw Error('Permissões inválidas.');
   return Object.fromEntries(PERMISSION_KEYS.map(key=>[key,value[key]===true]));
@@ -12,6 +12,7 @@ export async function authorizeTaskOperation(query,method,args,identity,adminMet
   const user=result.rows[0];if(!user)throw Error('Sessão inválida. Entre novamente.');
   if(adminMethods.has(method)&&user.perfil!=='Admin')throw Error('Acesso permitido apenas para Admin.');
   const allow=key=>{if(user.permissoes?.[key]!==true)throw Error('Seu cadastro não permite esta ação. Peça ao administrador para liberar a permissão.');};
+  if (method === 'createEmployeeDailyTemplate' && user.perfil !== 'Admin') allow('criarTarefasRepetitivas');
   const getTask=async()=>{const r=await query('SELECT * FROM tarefas WHERE id=$1',[args[0]]);const task=r.rows[0];if(!task || (user.perfil!=='Admin'&&task.atribuido_para!==user.email))throw Error('Tarefa não disponível para este usuário.');return task;};
   const canSend=async email=>{
     if(email===user.email)return;
@@ -43,3 +44,5 @@ export async function authorizeTaskOperation(query,method,args,identity,adminMet
   }
   return user;
 }
+
+
